@@ -4,28 +4,30 @@
 
 * Tasks
 
-** DONE Set up python code to automatically download OLR file
+** DONE Download OLR file
 CLOSED: [2021-08-13 Fri 09:31]
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2021-08-13 Fri 09:31]
 :END:
-** DONE Run yearly average
+** DONE Average data over one year
 CLOSED: [2021-08-13 Fri 09:32]
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2021-08-13 Fri 09:32]
 :END:
-** DONE Make plot of yearly average
+** DONE Plot of yearly average
 CLOSED: [2021-08-13 Fri 09:32]
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2021-08-13 Fri 09:32]
 :END:
-** DONE Use basemap to show geophysical boundaries
+** DONE Use cartopy to show geophysical boundaries
 CLOSED: [2021-08-13 Fri 15:50]
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2021-08-13 Fri 15:50]
 :END:
-** TODO Make a GIF of multiple plots
-** TODO Show a global average time series plot
+** TODO GIF of multiple yearly average plots
+** TODO Global average time series
+** TODO Wavenumber-frequency diagram
+** TODO Time-longitude diagram
 
 * Getting OLR Data 
 
@@ -35,8 +37,11 @@ OLR data is provided freely by the National Oceanic and Atmospheric Administrati
 
 Let's start by dowloading the monthly OLR data. We'll use the =os= and =urllib.request= modules to do this.
 
-#+header: :prologue import urllib.request, os
 #+begin_src python :session one :exports both :results none
+
+# Import modules
+import os
+import urllib.request
 
 # Set the URL of the data to download
 dataUrl = "https://www.ncei.noaa.gov/data/"+\
@@ -59,9 +64,13 @@ if not os.path.exists(filePath):
 * Plotting OLR Data
 
 Now let's have a look at the data. We'll use =xarray= to open the downloaded OLR file in its netCDF4 file format. Since the data that comes down covers over 30 years of data, let's just have a look at one year for now. We'll use the =datetime= module to specify bounds in the time dimension of the file, and then take the time mean of that data. Finally, we use =matplotlib= to plot the data.
-
-#+header: :prologue import xarray, datetime, matplotlib.pyplot as plt
+ 
 #+begin_src python :session one :results output file :exports both
+
+# Import modules
+import xarray
+import datetime
+import matplotlib.pyplot as plt
 
 # Set date bounds to slice the data
 beginDate = datetime.datetime(2020,1,1)

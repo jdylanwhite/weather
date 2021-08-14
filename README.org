@@ -1,3 +1,10 @@
 * Weather
 
 This is my repository for exploring weather data, figuring out how to do it better with Python, and making graphics for exploratory projects and, hopefully soon, my website project.
+
+* Tasks
+
+** TODO OLR functions and figures
+** TODO Surface temperature functions and figures
+** TODO Precipitation functions and figures
+** TODO Winds functions and figures
