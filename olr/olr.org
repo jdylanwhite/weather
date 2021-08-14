@@ -1,5 +1,4 @@
 #+author: J. Dylan White
-#+title: Outgoing Longwave Radiation
 #+date: <2021-08-13 Fri>
 
 * Tasks
@@ -29,13 +28,17 @@ CLOSED: [2021-08-13 Fri 15:50]
 ** TODO Wavenumber-frequency diagram
 ** TODO Time-longitude diagram
 
-* Getting OLR Data 
+* Outgoing Longwave Radiation (OLR)
 
-Outgoing Longwave Radiation (OLR) is terrestrial electromagnetic radiation in the infrared region, roughly 3 to 100 \(\mu\)m, released into space. This dataset can tell us a lot about the atmosphere. For example, OLR can be used as a proxy for convection since cloud top temperatures are cooler, so we can examine things like the Madden-Julian Oscillation (MJO) where convection is highly correlated to the atmospheric phenomenon.
+In this document, I'm practicing using Org-mode with Babel to run snippets of python, using Python to read and operate on weather data from netCDF in some of the ways I had known previously in the NCAR Command Language (NCL) which is no longer supported. A small but powerful dataset to learn with is the Outgoing Longwave Radiation dataset, so let's check that out here.
+
+Outgoing Longwave Radiation (OLR) is terrestrial electromagnetic radiation in the infrared wavelengths of light, roughly 3 to 100 \(\mu\)m, released into space. This dataset can tell us a lot about the atmosphere. For example, OLR can be used as a proxy for convection since cloud top temperatures are cooler, so we can examine things like the Madden-Julian Oscillation (MJO) where convection is highly correlated to the atmospheric phenomenon.
 
 OLR data is provided freely by the National Oceanic and Atmospheric Administration (NOAA) on their National Centers for Environmental Information (NCEI). The data is available in [[https://www.ncei.noaa.gov/products/climate-data-records/outgoing-longwave-radiation-daily][daily]] and [[https://www.ncei.noaa.gov/products/climate-data-records/outgoing-longwave-radiation-monthly][monthly]] records. Information describing how the data was obtained can be found in this [[https://www.ncei.noaa.gov/pub/data/sds/cdr/CDRs/Outgoing%20Longwave%20Radiation%20-%20Daily/AlgorithmDescription_01B-21.pdf][Algorithm Description Document]]. Note that the data is pretty course, at 2.5 by 2.5 degrees latitude and longitude, so some applications are limited.
 
-Let's start by dowloading the monthly OLR data. We'll use the =os= and =urllib.request= modules to do this.
+** Download OLR Data
+
+Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Due to its course resolution and lack of a vertical dimension, it isn't a cumbersome dataset (21 MB), but there are still over 30 years of data, spanning from 1979 to the present, 2021.
 
 #+begin_src python :session one :exports both :results none
 
@@ -61,9 +64,9 @@ if not os.path.exists(filePath):
 
 #+RESULTS:
 
-* Plotting OLR Data
+** Annual Averages
 
-Now let's have a look at the data. We'll use =xarray= to open the downloaded OLR file in its netCDF4 file format. Since the data that comes down covers over 30 years of data, let's just have a look at one year for now. We'll use the =datetime= module to specify bounds in the time dimension of the file, and then take the time mean of that data. Finally, we use =matplotlib= to plot the data.
+Now that we've downloaded it, let's have a look at the data. We'll use =xarray= to open the downloaded OLR file in its netCDF4 file format. Since the data that comes down covers over 30 years of data, let's just have a look at one year for now. We'll use the =datetime= module to specify bounds in the time dimension of the file, and then take the time mean of that data. Finally, we use =matplotlib= to plot the data. To perform the average, we need to take the slice of time that we want via the =.sel()= method, and then run the =.mean()= method on the time dimension of that slice. 
  
 #+begin_src python :session one :results output file :exports both
 
@@ -98,6 +101,8 @@ print(fileName)
 
 #+RESULTS:
 [[file:images/yearly_average.png]]
+
+** Nicer Maps with Cartopy
 
 Let's make the plot a little more clean. We can do some things, like change the color map, add coastlines, etc.
 
@@ -158,3 +163,39 @@ print(fileName)
 #+RESULTS:
 [[file:images/prettier_yearly_average.png]]
 
+** Global Average Time Series
+
+#+begin_src  python :session one :results output file :exports both
+
+# Average over the time dimension
+olrGlobalAvg = ds['olr'].mean(dim=["lat","lon"])
+time = ds['time']
+
+# Perform running average to smooth out the annual cycle
+nSmooth = 12
+olrGlobalAvg = np.convolve(olrGlobalAvg, np.ones(nSmooth)/float(nSmooth), mode='valid')
+
+# Intialize the figure
+fig, ax = plt.subplots(figsize=(11,8.5))
+
+# Create the plot, drop the points that get dropped in the convolution 
+nDrop = int(nSmooth/2)
+time = time[int(nSmooth/2):-int(nSmooth/2 - 1)]
+ax.plot(time,olrGlobalAvg,linewidth=2.0)
+
+# Adjust axis properties
+ax.tick_params(labelsize=14)
+ax.set_xlabel("Date, years",fontsize=16)
+ax.set_ylabel("OLR, W m$^{-2}$",fontsize=16)
+ax.set_xlim(["1979-07-16","2021-02-15"])
+
+# Save the figure
+fileName = 'images/global_average.png'
+plt.savefig(fileName,dpi=300)
+plt.close(fig)
+print(fileName)
+
+#+end_src
+
+#+RESULTS:
+[[file:images/global_average.png]]
