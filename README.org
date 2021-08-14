@@ -1,0 +1,3 @@
+* Weather
+
+This is my repository for exploring weather data, figuring out how to do it better with Python, and making graphics for exploratory projects and, hopefully soon, my website project.
