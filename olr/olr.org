@@ -23,10 +23,17 @@ CLOSED: [2021-08-13 Fri 15:50]
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2021-08-13 Fri 15:50]
 :END:
-** TODO GIF of multiple yearly average plots
-** TODO Global average time series
+** DONE Global average time series
+CLOSED: [2021-08-15 Sun 12:23]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2021-08-15 Sun 12:23]
+:END:
+** DONE Time-longitude diagram
+CLOSED: [2021-08-15 Sun 14:10]
+:LOGBOOK:
+- State "DONE"       from              [2021-08-15 Sun 14:10]
+:END:
 ** TODO Wavenumber-frequency diagram
-** TODO Time-longitude diagram
 
 * Outgoing Longwave Radiation (OLR)
 
@@ -36,7 +43,7 @@ Outgoing Longwave Radiation (OLR) is terrestrial electromagnetic radiation in th
 
 OLR data is provided freely by the National Oceanic and Atmospheric Administration (NOAA) on their National Centers for Environmental Information (NCEI). The data is available in [[https://www.ncei.noaa.gov/products/climate-data-records/outgoing-longwave-radiation-daily][daily]] and [[https://www.ncei.noaa.gov/products/climate-data-records/outgoing-longwave-radiation-monthly][monthly]] records. Information describing how the data was obtained can be found in this [[https://www.ncei.noaa.gov/pub/data/sds/cdr/CDRs/Outgoing%20Longwave%20Radiation%20-%20Daily/AlgorithmDescription_01B-21.pdf][Algorithm Description Document]]. Note that the data is pretty course, at 2.5 by 2.5 degrees latitude and longitude, so some applications are limited.
 
-** Download OLR Data
+** Download the Data
 
 Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Due to its course resolution and lack of a vertical dimension, it isn't a cumbersome dataset (21 MB), but there are still over 30 years of data, spanning from 1979 to the present, 2021.
 
@@ -199,3 +206,107 @@ print(fileName)
 
 #+RESULTS:
 [[file:images/global_average.png]]
+
+** Time-Longitude Diagram
+
+Viewing meteorological fields with time and longitude axes is a good way to visualize longitudinal wave propagation as it is present in that meteorological field. These are often referred to as Hovmoller diagrams. Let's plot an example in Python. We'll average the data over a latitude band  and show the Hovmoller diagram for a subset of the time in the dataset.
+
+#+begin_src  python :session one :results output file :exports both
+
+# Import modules
+import matplotlib.gridspec as gridspec
+import cartopy.feature as cfeature
+import metpy.calc as mpcalc
+
+# Set time bounds
+beginTime = '2019-01-01'
+endTime = '2020-12-31'
+timeSlice = slice(beginTime,endTime)
+
+# Set latitude bounds
+latS = 25.0
+latN = 50.0
+latSlice = slice(latS,latN)
+
+# Set longitude bounds
+lonW = 0.0
+lonE = 357.5
+lonSlice = slice(lonW,lonE)
+
+# Subset the data
+data = ds['olr'].sel(time=timeSlice,lat=latSlice,lon=lonSlice)
+  
+# Compute weights and take weighted average over latitude dimension
+weights = np.cos(np.deg2rad(data.lat.values))
+dataLatAvg = (data * weights[None, :, None]).sum(dim='lat') / np.sum(weights)
+
+# Apply a smoothing to the data
+dataLatAvg = mpcalc.smooth_n_point(dataLatAvg, 9, 2)
+
+# Get times and make array of datetime objects
+time = data.time.values.astype('datetime64[ms]').astype('O')
+
+# Specify longitude values for chosen domain
+lon = data.lon.values
+
+# Start figure
+fig = plt.figure(figsize=(10, 13))
+
+# Use gridspec to help size elements of plot; small top plot and big bottom plot
+gs = gridspec.GridSpec(nrows=2, ncols=1, height_ratios=[1,12], hspace=0.15)
+
+# Tick labels
+x_tick_labels = [u'0\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
+                 u'180\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}W',
+                 u'0\N{DEGREE SIGN}E']
+
+# Top plot for geographic reference (makes small map)
+ax1 = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=180))
+ax1.tick_params(labelsize=12)
+ax1.set_extent([lonW,lonE,latS,latN], ccrs.PlateCarree(central_longitude=180))
+ax1.set_yticks([latS,latN])
+ax1.set_yticklabels([f'{int(latS)}\N{DEGREE SIGN}N',f'{int(latN)}\N{DEGREE SIGN}N'])
+ax1.set_xticks([-180, -90, 0, 90, 180])
+ax1.set_xticklabels(x_tick_labels)
+ax1.grid(linestyle='dotted',linewidth=2,color="gray")
+
+# Add geopolitical boundaries for map reference
+ax1.stock_img()
+ax1.add_feature(cfeature.COASTLINE)
+
+# Set some titles
+plt.title('Hovmoller Diagram',loc='left',fontsize=14)
+plt.title('Outgoing Longwave Radiation',loc='right',fontsize=14)
+
+# Bottom plot for Hovmoller diagram
+ax2 = fig.add_subplot(gs[1, 0])
+ax2.tick_params(labelsize=12)
+
+# Create contourf and contour plots
+clevs = np.arange(210,285+1,7.5)
+cf = ax2.contourf(lon,time,dataLatAvg,clevs,cmap=plt.cm.viridis,extend='both')
+cs = ax2.contour(lon,time,dataLatAvg,clevs,colors='k',linewidths=1)
+cbar = plt.colorbar(cf,orientation='horizontal',pad=0.04,aspect=50)
+cbar.ax.tick_params(labelsize=12)
+cbar.set_label('W m$^{-2}$',fontsize=12)
+
+# Make some ticks and tick labels
+ax2.set_xticks([0, 90, 180, 270, 357.5])
+ax2.set_xticklabels(x_tick_labels)
+
+# Set some titles
+plt.title(f'Latitude Range: {latS}\N{DEGREE SIGN}N - {latN}\N{DEGREE SIGN}N', 
+          loc='left',fontsize=14)
+plt.title('Date Range: {0:%Y-%m} - {1:%Y-%m}'.format(time[0], time[-1]),
+          loc='right',fontsize=14)
+
+# Save the figure
+fileName = 'images/hovmoller.png'
+plt.savefig(fileName,dpi=300)
+plt.close(fig)
+print(fileName)
+
+#+end_src
+
+#+RESULTS:
+[[file:images/hovmoller.png]]

@@ -8,3 +8,9 @@ This is my repository for exploring weather data, figuring out how to do it bett
 ** TODO Surface temperature functions and figures
 ** TODO Precipitation functions and figures
 ** TODO Winds functions and figures
+
+* Resources
+
+- [[https://unidata.github.io/python-gallery/examples/index.html][Unidata Python Gallery]]
+
+
