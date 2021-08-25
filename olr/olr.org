@@ -1,41 +1,8 @@
+#+title: Outgoing Longwave Radiation (OLR)
 #+author: J. Dylan White
-#+date: <2021-08-13 Fri>
+#+date: <2021-08-25 Wed>
 
-* Tasks
-
-** DONE Download OLR file
-CLOSED: [2021-08-13 Fri 09:31]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2021-08-13 Fri 09:31]
-:END:
-** DONE Average data over one year
-CLOSED: [2021-08-13 Fri 09:32]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2021-08-13 Fri 09:32]
-:END:
-** DONE Plot of yearly average
-CLOSED: [2021-08-13 Fri 09:32]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2021-08-13 Fri 09:32]
-:END:
-** DONE Use cartopy to show geophysical boundaries
-CLOSED: [2021-08-13 Fri 15:50]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2021-08-13 Fri 15:50]
-:END:
-** DONE Global average time series
-CLOSED: [2021-08-15 Sun 12:23]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2021-08-15 Sun 12:23]
-:END:
-** DONE Time-longitude diagram
-CLOSED: [2021-08-15 Sun 14:10]
-:LOGBOOK:
-- State "DONE"       from              [2021-08-15 Sun 14:10]
-:END:
-** TODO Wavenumber-frequency diagram
-
-* Outgoing Longwave Radiation (OLR)
+* Introduction
 
 In this document, I'm practicing using Org-mode with Babel to run snippets of python, using Python to read and operate on weather data from netCDF in some of the ways I had known previously in the NCAR Command Language (NCL) which is no longer supported. A small but powerful dataset to learn with is the Outgoing Longwave Radiation dataset, so let's check that out here.
 
@@ -43,270 +10,286 @@ Outgoing Longwave Radiation (OLR) is terrestrial electromagnetic radiation in th
 
 OLR data is provided freely by the National Oceanic and Atmospheric Administration (NOAA) on their National Centers for Environmental Information (NCEI). The data is available in [[https://www.ncei.noaa.gov/products/climate-data-records/outgoing-longwave-radiation-daily][daily]] and [[https://www.ncei.noaa.gov/products/climate-data-records/outgoing-longwave-radiation-monthly][monthly]] records. Information describing how the data was obtained can be found in this [[https://www.ncei.noaa.gov/pub/data/sds/cdr/CDRs/Outgoing%20Longwave%20Radiation%20-%20Daily/AlgorithmDescription_01B-21.pdf][Algorithm Description Document]]. Note that the data is pretty course, at 2.5 by 2.5 degrees latitude and longitude, so some applications are limited.
 
-** Download the Data
+* Download the Data
 
-Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Due to its course resolution and lack of a vertical dimension, it isn't a cumbersome dataset (21 MB), but there are still over 30 years of data, spanning from 1979 to the present, 2021.
+Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Due to its course resolution and lack of a vertical dimension, it isn't a cumbersome dataset (21 MB), but there are still over 40 years of data, spanning from 1979 to the present, 2021.
 
 #+begin_src python :session one :exports both :results none
+  
+  # Import modules
+  import os
+  import urllib.request
 
-# Import modules
-import os
-import urllib.request
+  # Set the URL of the data to download
+  dataUrl = "https://www.ncei.noaa.gov/data/"+\
+            "outgoing-longwave-radiation-monthly/"+\
+            "access/olr-monthly_v02r07_197901_202107.nc"
 
-# Set the URL of the data to download
-dataUrl = "https://www.ncei.noaa.gov/data/"+\
-          "outgoing-longwave-radiation-monthly/"+\
-          "access/olr-monthly_v02r07_197901_202107.nc"
+  # Grab the file name
+  dataDir = "./data/"
+  fileName = os.path.basename(dataUrl)
+  filePath = os.path.join(dataDir,fileName)
 
-# Grab the file name
-dataDir = "./data/"
-fileName = os.path.basename(dataUrl)
-filePath = os.path.join(dataDir,fileName)
-
-# Check if the file exists, and if it doesn't, download it
-if not os.path.exists(filePath):
-    urllib.request.urlretrieve(dataUrl,filePath)
+  # Check if the file exists, and if it doesn't, download it
+  if not os.path.exists(filePath):
+      urllib.request.urlretrieve(dataUrl,filePath)
 
 #+end_src
 
-#+RESULTS:
+There is only one file sitting in the NCEI directory, storing all monthly averages from January 1979 until the most recent full month. So the link will have to be updated in future months to reflect the file that's sitting in the directory.
 
-** Annual Averages
+** TODO See if we can find a way to identify the most recent file sitting in the NCEI directory
+** TODO Download the daily files
+
+* Annual Averages
 
 Now that we've downloaded it, let's have a look at the data. We'll use =xarray= to open the downloaded OLR file in its netCDF4 file format. Since the data that comes down covers over 30 years of data, let's just have a look at one year for now. We'll use the =datetime= module to specify bounds in the time dimension of the file, and then take the time mean of that data. Finally, we use =matplotlib= to plot the data. To perform the average, we need to take the slice of time that we want via the =.sel()= method, and then run the =.mean()= method on the time dimension of that slice. 
  
 #+begin_src python :session one :results output file :exports both
+  
+  # Import modules
+  import xarray
+  import datetime
+  import matplotlib.pyplot as plt
 
-# Import modules
-import xarray
-import datetime
-import matplotlib.pyplot as plt
+  # Set date bounds to slice the data
+  beginDate = datetime.datetime(2020,1,1)
+  endDate = datetime.datetime(2021,1,1)
 
-# Set date bounds to slice the data
-beginDate = datetime.datetime(2020,1,1)
-endDate = datetime.datetime(2021,1,1)
+  # Open the dataset with xarray
+  ds = xarray.open_dataset(filePath)
 
-# Open the dataset with xarray
-ds = xarray.open_dataset(filePath)
+  # Slice the data to only be within a specified date range 
+  olrSlice = ds['olr'].sel(time=slice(beginDate,endDate))
 
-# Slice the data to only be within a specified date range 
-olrSlice = ds['olr'].sel(time=slice(beginDate,endDate))
+  # Average over the time dimension
+  olrTimeAvg = olrSlice.mean(dim="time")
 
-# Average over the time dimension
-olrTimeAvg = olrSlice.mean(dim="time")
+  # Plot the data
+  olrTimeAvg.plot()
 
-# Plot the data
-olrTimeAvg.plot()
-
-# Save the figure
-fileName = 'images/yearly_average.png'
-plt.savefig(fileName, dpi = 300)
-plt.close()
-print(fileName)
+  # Save the figure
+  fileName = 'images/yearly_average.png'
+  plt.savefig(fileName,dpi=300)
+  plt.close()
+  print(fileName)
 
 #+end_src
 
 #+RESULTS:
 [[file:images/yearly_average.png]]
 
-** Nicer Maps with Cartopy
+The output image doesn't look wonderful or anything, but we see what we might expect; more OLR in the tropics, less OLR towards the poles, and a thin strip of lower OLR right at the equator due to the cold cloud tops in the Inter-Tropical Convergence Zone (ITCZ). 
 
-Let's make the plot a little more clean. We can do some things, like change the color map, add coastlines, etc.
+* Nicer Maps with Cartopy
+
+Let's make the plot a little more clean. We can do some things, like change the color map, add coastlines, etc. [[https://scitools.org.uk/cartopy/docs/latest/index.html][Cartopy]] will allow us to a lot of these tasks.
 
 #+begin_src python :session one :results output file :exports both
+  
+  # Import modules
+  import numpy as np
+  import cartopy.crs as ccrs
+  from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+  from mpl_toolkits.axes_grid1 import make_axes_locatable
+  from cartopy.util import add_cyclic_point
 
-# Import modules
-import numpy as np
-import cartopy.crs as ccrs
-from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from cartopy.util import add_cyclic_point
+  # Intialize the figure
+  fig = plt.figure(figsize=(11,8.5))
 
-# Intialize the figure
-fig = plt.figure(figsize=(11,8.5))
+  # Set up axes using a specified projection
+  ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0))
 
-# Set up axes using a specified projection
-ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0))
+  # Add cyclic point to data
+  data = olrTimeAvg
+  data, lon = add_cyclic_point(data,coord=data['lon'])
 
-# Add cyclic point to data
-data = olrTimeAvg
-data, lon = add_cyclic_point(data,coord=data['lon'])
+  # Make a filled contour plot
+  contour = ax.contourf(lon,olrTimeAvg['lat'],data,
+                        transform=ccrs.PlateCarree(),
+                        cmap="viridis",extend='both')
 
-# Make a filled contour plot
-contour = ax.contourf(lon,olrTimeAvg['lat'],data,
-                      transform=ccrs.PlateCarree(),
-                      cmap="viridis",extend='both')
+  # Set up the tickmarks
+  ax.set_xticks(np.arange(-180,181,45)[1:-1], crs=ccrs.PlateCarree())
+  ax.set_yticks(np.arange(-90,91,30)[1:-1], crs=ccrs.PlateCarree())
+  lon_formatter = LongitudeFormatter(number_format='.0f',
+                                     degree_symbol='')
+  lat_formatter = LatitudeFormatter(number_format='.0f',
+                                    degree_symbol='')
+  ax.xaxis.set_major_formatter(lon_formatter)
+  ax.yaxis.set_major_formatter(lat_formatter)
 
-# Set up the tickmarks
-ax.set_xticks(np.arange(-180,181,45)[1:-1], crs=ccrs.PlateCarree())
-ax.set_yticks(np.arange(-90,91,30)[1:-1], crs=ccrs.PlateCarree())
-lon_formatter = LongitudeFormatter(number_format='.0f',
-                                   degree_symbol='')
-lat_formatter = LatitudeFormatter(number_format='.0f',
-                                  degree_symbol='')
-ax.xaxis.set_major_formatter(lon_formatter)
-ax.yaxis.set_major_formatter(lat_formatter)
+  # Turn on coastlines
+  ax.coastlines()
 
-# Turn on coastlines
-ax.coastlines()
+  # Set axis font sizes
+  ax.tick_params(labelsize=14)
 
-# Set axis font sizes
-ax.tick_params(labelsize=14)
+  # Configure colorbar
+  cbar=plt.colorbar(contour,orientation="horizontal",pad=0.1)
+  cbar.ax.tick_params(labelsize=14)
+  cbar.set_label('W m$^{-2}$',fontsize=16)
 
-# Configure colorbar
-cbar=plt.colorbar(contour,orientation="horizontal",pad=0.1)
-cbar.ax.tick_params(labelsize=14)
-cbar.set_label('W m$^{-2}$',fontsize=16)
-
-# Save the figure
-fileName = 'images/prettier_yearly_average.png'
-plt.savefig(fileName,dpi=300)
-plt.close()
-
-print(fileName)
+  # Save the figure
+  fileName = 'images/prettier_yearly_average.png'
+  plt.savefig(fileName,dpi=300)
+  plt.close()
+  print(fileName)
 
 #+end_src
 
 #+RESULTS:
 [[file:images/prettier_yearly_average.png]]
 
-** Global Average Time Series
+And now we have a much nicer looking map plot of OLR! 
+
+* Global Average Time Series
+
+What if we don't want to plot a map, but instead, a global average. To do so, we'll average over all latitudes and longitudes, and then show an OLR vs. time plot.
 
 #+begin_src  python :session one :results output file :exports both
+  
+  # Average over the time dimension
+  olrGlobalAvg = ds['olr'].mean(dim=["lat","lon"])
+  time = ds['time']
 
-# Average over the time dimension
-olrGlobalAvg = ds['olr'].mean(dim=["lat","lon"])
-time = ds['time']
+  # Perform running average to smooth out the annual cycle
+  nSmooth = 12
+  olrGlobalAvg = np.convolve(olrGlobalAvg, np.ones(nSmooth)/float(nSmooth), mode='valid')
 
-# Perform running average to smooth out the annual cycle
-nSmooth = 12
-olrGlobalAvg = np.convolve(olrGlobalAvg, np.ones(nSmooth)/float(nSmooth), mode='valid')
+  # Intialize the figure
+  fig, ax = plt.subplots(figsize=(11,8.5))
 
-# Intialize the figure
-fig, ax = plt.subplots(figsize=(11,8.5))
+  # Create the plot, drop the points that get dropped in the convolution 
+  nDrop = int(nSmooth/2)
+  time = time[int(nSmooth/2):-int(nSmooth/2 - 1)]
+  ax.plot(time,olrGlobalAvg,linewidth=2.0)
 
-# Create the plot, drop the points that get dropped in the convolution 
-nDrop = int(nSmooth/2)
-time = time[int(nSmooth/2):-int(nSmooth/2 - 1)]
-ax.plot(time,olrGlobalAvg,linewidth=2.0)
+  # Adjust axis properties
+  ax.tick_params(labelsize=14)
+  ax.set_xlabel("Date, years",fontsize=16)
+  ax.set_ylabel("OLR, W m$^{-2}$",fontsize=16)
+  ax.set_xlim(["1979-07-16","2021-02-15"])
 
-# Adjust axis properties
-ax.tick_params(labelsize=14)
-ax.set_xlabel("Date, years",fontsize=16)
-ax.set_ylabel("OLR, W m$^{-2}$",fontsize=16)
-ax.set_xlim(["1979-07-16","2021-02-15"])
-
-# Save the figure
-fileName = 'images/global_average.png'
-plt.savefig(fileName,dpi=300)
-plt.close(fig)
-print(fileName)
+  # Save the figure
+  fileName = 'images/global_average.png'
+  plt.savefig(fileName,dpi=300)
+  plt.close(fig)
+  print(fileName)
 
 #+end_src
 
 #+RESULTS:
 [[file:images/global_average.png]]
 
-** Time-Longitude Diagram
+Over the past 40 years, we can see some patterns, but the globally averaged OLR doesn't deviate too much from about 223 W m\(^{-2}\).
 
-Viewing meteorological fields with time and longitude axes is a good way to visualize longitudinal wave propagation as it is present in that meteorological field. These are often referred to as Hovmoller diagrams. Let's plot an example in Python. We'll average the data over a latitude band  and show the Hovmoller diagram for a subset of the time in the dataset.
+* Time-Longitude Diagram
+
+Viewing meteorological fields with time and longitude axes is a good way to visualize longitudinal wave propagation as it is present in that meteorological field. These are often referred to as Hovmoller diagrams. Let's plot an example. We'll average the data over a latitude band and show the Hovmoller diagram for a subset of the time in the dataset.
 
 #+begin_src  python :session one :results output file :exports both
-
-# Import modules
-import matplotlib.gridspec as gridspec
-import cartopy.feature as cfeature
-import metpy.calc as mpcalc
-
-# Set time bounds
-beginTime = '2019-01-01'
-endTime = '2020-12-31'
-timeSlice = slice(beginTime,endTime)
-
-# Set latitude bounds
-latS = 25.0
-latN = 50.0
-latSlice = slice(latS,latN)
-
-# Set longitude bounds
-lonW = 0.0
-lonE = 357.5
-lonSlice = slice(lonW,lonE)
-
-# Subset the data
-data = ds['olr'].sel(time=timeSlice,lat=latSlice,lon=lonSlice)
   
-# Compute weights and take weighted average over latitude dimension
-weights = np.cos(np.deg2rad(data.lat.values))
-dataLatAvg = (data * weights[None, :, None]).sum(dim='lat') / np.sum(weights)
+  # Import modules
+  import matplotlib.gridspec as gridspec
+  import cartopy.feature as cfeature
+  import metpy.calc as mpcalc
 
-# Apply a smoothing to the data
-dataLatAvg = mpcalc.smooth_n_point(dataLatAvg, 9, 2)
+  # Set time bounds
+  beginTime = '2019-01-01'
+  endTime = '2020-12-31'
+  timeSlice = slice(beginTime,endTime)
 
-# Get times and make array of datetime objects
-time = data.time.values.astype('datetime64[ms]').astype('O')
+  # Set latitude bounds
+  latS = 25.0
+  latN = 50.0
+  latSlice = slice(latS,latN)
 
-# Specify longitude values for chosen domain
-lon = data.lon.values
+  # Set longitude bounds
+  lonW = 0.0
+  lonE = 357.5
+  lonSlice = slice(lonW,lonE)
 
-# Start figure
-fig = plt.figure(figsize=(10, 13))
+  # Subset the data
+  data = ds['olr'].sel(time=timeSlice,lat=latSlice,lon=lonSlice)
+  
+  # Compute weights and take weighted average over latitude dimension
+  weights = np.cos(np.deg2rad(data.lat.values))
+  dataLatAvg = (data * weights[None, :, None]).sum(dim='lat') / np.sum(weights)
 
-# Use gridspec to help size elements of plot; small top plot and big bottom plot
-gs = gridspec.GridSpec(nrows=2, ncols=1, height_ratios=[1,12], hspace=0.15)
+  # Apply a smoothing to the data
+  dataLatAvg = mpcalc.smooth_n_point(dataLatAvg, 9, 2)
 
-# Tick labels
-x_tick_labels = [u'0\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
-                 u'180\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}W',
-                 u'0\N{DEGREE SIGN}E']
+  # Get times and make array of datetime objects
+  time = data.time.values.astype('datetime64[ms]').astype('O')
 
-# Top plot for geographic reference (makes small map)
-ax1 = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=180))
-ax1.tick_params(labelsize=12)
-ax1.set_extent([lonW,lonE,latS,latN], ccrs.PlateCarree(central_longitude=180))
-ax1.set_yticks([latS,latN])
-ax1.set_yticklabels([f'{int(latS)}\N{DEGREE SIGN}N',f'{int(latN)}\N{DEGREE SIGN}N'])
-ax1.set_xticks([-180, -90, 0, 90, 180])
-ax1.set_xticklabels(x_tick_labels)
-ax1.grid(linestyle='dotted',linewidth=2,color="gray")
+  # Specify longitude values for chosen domain
+  lon = data.lon.values
 
-# Add geopolitical boundaries for map reference
-ax1.stock_img()
-ax1.add_feature(cfeature.COASTLINE)
+  # Start figure
+  fig = plt.figure(figsize=(10, 13))
 
-# Set some titles
-plt.title('Hovmoller Diagram',loc='left',fontsize=14)
-plt.title('Outgoing Longwave Radiation',loc='right',fontsize=14)
+  # Use gridspec to help size elements of plot; small top plot and big bottom plot
+  gs = gridspec.GridSpec(nrows=2, ncols=1, height_ratios=[1,12], hspace=0.15)
 
-# Bottom plot for Hovmoller diagram
-ax2 = fig.add_subplot(gs[1, 0])
-ax2.tick_params(labelsize=12)
+  # Tick labels
+  x_tick_labels = [u'0\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
+                   u'180\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}W',
+                   u'0\N{DEGREE SIGN}E']
 
-# Create contourf and contour plots
-clevs = np.arange(210,285+1,7.5)
-cf = ax2.contourf(lon,time,dataLatAvg,clevs,cmap=plt.cm.viridis,extend='both')
-cs = ax2.contour(lon,time,dataLatAvg,clevs,colors='k',linewidths=1)
-cbar = plt.colorbar(cf,orientation='horizontal',pad=0.04,aspect=50)
-cbar.ax.tick_params(labelsize=12)
-cbar.set_label('W m$^{-2}$',fontsize=12)
+  # Top plot for geographic reference (makes small map)
+  ax1 = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=180))
+  ax1.tick_params(labelsize=12)
+  ax1.set_extent([lonW,lonE,latS,latN], ccrs.PlateCarree(central_longitude=180))
+  ax1.set_yticks([latS,latN])
+  ax1.set_yticklabels([f'{int(latS)}\N{DEGREE SIGN}N',f'{int(latN)}\N{DEGREE SIGN}N'])
+  ax1.set_xticks([-180, -90, 0, 90, 180])
+  ax1.set_xticklabels(x_tick_labels)
+  ax1.grid(linestyle='dotted',linewidth=2,color="gray")
 
-# Make some ticks and tick labels
-ax2.set_xticks([0, 90, 180, 270, 357.5])
-ax2.set_xticklabels(x_tick_labels)
+  # Add geopolitical boundaries for map reference
+  ax1.stock_img()
+  ax1.add_feature(cfeature.COASTLINE)
 
-# Set some titles
-plt.title(f'Latitude Range: {latS}\N{DEGREE SIGN}N - {latN}\N{DEGREE SIGN}N', 
-          loc='left',fontsize=14)
-plt.title('Date Range: {0:%Y-%m} - {1:%Y-%m}'.format(time[0], time[-1]),
-          loc='right',fontsize=14)
+  # Set some titles
+  plt.title('Hovmoller Diagram',loc='left',fontsize=14)
+  plt.title('Outgoing Longwave Radiation',loc='right',fontsize=14)
 
-# Save the figure
-fileName = 'images/hovmoller.png'
-plt.savefig(fileName,dpi=300)
-plt.close(fig)
-print(fileName)
+  # Bottom plot for Hovmoller diagram
+  ax2 = fig.add_subplot(gs[1, 0])
+  ax2.tick_params(labelsize=12)
+
+  # Create contourf and contour plots
+  clevs = np.arange(210,285+1,7.5)
+  cf = ax2.contourf(lon,time,dataLatAvg,clevs,cmap=plt.cm.viridis,extend='both')
+  cs = ax2.contour(lon,time,dataLatAvg,clevs,colors='k',linewidths=1)
+  cbar = plt.colorbar(cf,orientation='horizontal',pad=0.04,aspect=50)
+  cbar.ax.tick_params(labelsize=12)
+  cbar.set_label('W m$^{-2}$',fontsize=12)
+
+  # Make some ticks and tick labels
+  ax2.set_xticks([0, 90, 180, 270, 357.5])
+  ax2.set_xticklabels(x_tick_labels)
+
+  # Set some titles
+  plt.title(f'Latitude Range: {latS}\N{DEGREE SIGN}N - {latN}\N{DEGREE SIGN}N', 
+            loc='left',fontsize=14)
+  plt.title('Date Range: {0:%Y-%m} - {1:%Y-%m}'.format(time[0], time[-1]),
+            loc='right',fontsize=14)
+
+  # Save the figure
+  fileName = 'images/hovmoller.png'
+  plt.savefig(fileName,dpi=300)
+  plt.close(fig)
+  print(fileName)
 
 #+end_src
 
 #+RESULTS:
 [[file:images/hovmoller.png]]
+ 
+In this dataset, we can't really see any propagating waves. If we could, we'd see diagonal streaks of positive and negative altering perturbations. We're looking at monthly averages, so any propagating waves that would show up here would need to have a period of more than two months to show up, and that's too large for most atmospheric oscillations that we'd expect to show up in OLR. The only streaks here are horizontal, with more OLR in the May - October months, and less OLR in the Novermber - April months. We're in the northern hemisphere for this diagram, so we're simply seeing the seasonal variation in the Earth's reflection/emmission. Note that the effect of land mass also shows up niceley here, as seen by the consistent vertical patterns.
+
+** TODO Figure out how to remove white strips from edges of plot.
+
+* TODO Wavenumber-Frequency Diagram
