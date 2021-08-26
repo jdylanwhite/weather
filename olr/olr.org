@@ -12,6 +12,10 @@ OLR data is provided freely by the National Oceanic and Atmospheric Administrati
 
 * Download the Data
 
+Before we get started, we need to download the data.
+
+** Monthly Data
+
 Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Since the data is fairly coarse and only stored in monthly averages (for our purposes), it isn't a cumbersome dataset (21 MB), but there are still over 40 years of data, spanning from 1979 to the present, 2021.
 
 #+begin_src python :session one :exports both :results none
@@ -36,7 +40,95 @@ Let's start by dowloading the monthly OLR data using Python. We'll use the =os= 
 
 #+end_src
 
-There is only one file sitting in the NCEI directory, storing all monthly averages from January 1979 until the most recent full month. So the link will have to be updated in future months to reflect the file that's sitting in the directory.
+There is only one file sitting in the NCEI directory, storing all monthly averages from January 1979 until the most recent full month. So the link will have to be updated in future months to reflect the file that's sitting in the directory. To alleviate that, we can instead use BeautifulSoup to parse the main directory to find the file name, rather than having to hard code in the file name.
+
+#+begin_src python :session one :exports both :results none
+
+  # Import modules
+  import requests
+  from bs4 import BeautifulSoup
+
+  # Set the directory to search in
+  baseUrl =  "https://www.ncei.noaa.gov/data/"+\
+             "outgoing-longwave-radiation-monthly/access/"   
+
+  # Set the file extension
+  ext = ".nc"
+
+  # Get the data from the base URL
+  page = requests.get(baseUrl).text
+
+  # Parse the page results
+  soup = BeautifulSoup(page, 'html.parser')
+
+  # Find all of the hyperlinked anchors on the page
+  fileList = [node.get('href') for node in soup.find_all('a')
+              if node.get('href').endswith(ext)]
+
+  # For the monthly files, there's only one file, so grab the first
+  # element of the list, and append the base URL
+  dataUrl = baseUrl+fileList[0]
+
+  # Grab the file name
+  dataDir = "./data/"
+  fileName = os.path.basename(dataUrl)
+  filePath = os.path.join(dataDir,fileName)
+
+  # Check if the file exists, and if it doesn't, download it
+  if not os.path.exists(filePath):
+      urllib.request.urlretrieve(dataUrl,filePath)
+
+#+end_src
+
+** Daily Data
+
+Similarly, we can download the daily data. These data files are stored yearly, with daily averages of OLR values. We can loop through a range of years and download the data for each year. An example file name is =olr-daily_v01r02_19790101_19791231.nc=. We need to make sure that we are only getting the files that are within the year range that we specify.
+
+#+begin_src python :session one :exports both :results none
+
+  # Define the range of years
+  beginYear = 2018
+  endYear = 2020
+
+  # Set the base URL for the directory to parse files
+  baseUrl = "https://www.ncei.noaa.gov/data/"+\
+            "outgoing-longwave-radiation-daily/access/"
+
+  # Set the file extension to find
+  ext = ".nc"
+
+  # Get the data from the base URL
+  page = requests.get(baseUrl).text
+
+  # Parse the page results
+  soup = BeautifulSoup(page, 'html.parser')
+
+  # Find all of the hyperlinked anchors on the page
+  fileList = [node.get('href') for node in soup.find_all('a')
+              if node.get('href').endswith(ext)]
+
+  # Find the file names that are within the date range
+  for year in range(beginYear,endYear+1):
+
+      # Set the strings to match
+      dateString = f'{year}0101_{year}1231'
+
+      # Find the file that matches the year
+      dataUrl = [baseUrl+fileName for fileName in fileList 
+                 if dateString in fileName][0]
+      
+      # Grab the file name
+      dataDir = "./data/"
+      fileName = os.path.basename(dataUrl)
+      filePath = os.path.join(dataDir,fileName)
+
+      # Check if the file exists, and if it doesn't, download it
+      if not os.path.exists(filePath):
+          urllib.request.urlretrieve(dataUrl,filePath)
+
+#+end_src
+
+Now we have some data to explore, so let's now figure out some nice ways to read the NetCDF files and plot the data. I'll stick to using the monthly averaged data for now.
 
 * Annual Averages
 
@@ -287,4 +379,4 @@ Viewing meteorological fields with time and longitude axes is a good way to visu
  
 In this dataset, we can't really see any propagating waves. If we could, we'd see diagonal streaks of positive and negative altering perturbations. We're looking at monthly averages, so any propagating waves that would show up here would need to have a period of more than two months to show up, and that's too large for most atmospheric oscillations that we'd expect to show up in OLR. The only streaks here are horizontal, with more OLR in the May - October months, and less OLR in the Novermber - April months. We're in the northern hemisphere for this diagram, so we're simply seeing the seasonal variation in the Earth's reflection/emmission. Note that the effect of land mass also shows up niceley here, as seen by the consistent vertical patterns.
 
-Now that we've successfully explored some of this data, I'll start storing some custom files to explore this and the daily data in the [[https://github.com/jdylanwhite/weather/blob/master/olr/olr.py][OLR functions script]] for future use.
+Now that we've successfully explored some of this data, I'll start storing some custom files to explore this and the daily data in the [[../olr.py][OLR functions script]] for future use.
