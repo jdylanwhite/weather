@@ -286,3 +286,5 @@ Viewing meteorological fields with time and longitude axes is a good way to visu
 [[file:images/hovmoller.png]]
  
 In this dataset, we can't really see any propagating waves. If we could, we'd see diagonal streaks of positive and negative altering perturbations. We're looking at monthly averages, so any propagating waves that would show up here would need to have a period of more than two months to show up, and that's too large for most atmospheric oscillations that we'd expect to show up in OLR. The only streaks here are horizontal, with more OLR in the May - October months, and less OLR in the Novermber - April months. We're in the northern hemisphere for this diagram, so we're simply seeing the seasonal variation in the Earth's reflection/emmission. Note that the effect of land mass also shows up niceley here, as seen by the consistent vertical patterns.
+
+Now that we've successfully explored some of this data, I'll start storing some custom files to explore this and the daily data in the [[https://github.com/jdylanwhite/weather/blob/master/olr/olr.py][OLR functions script]] for future use.
