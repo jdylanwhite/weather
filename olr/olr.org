@@ -12,7 +12,7 @@ OLR data is provided freely by the National Oceanic and Atmospheric Administrati
 
 * Download the Data
 
-Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Due to its course resolution and lack of a vertical dimension, it isn't a cumbersome dataset (21 MB), but there are still over 40 years of data, spanning from 1979 to the present, 2021.
+Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Since the data is fairly coarse and only stored in monthly averages (for our purposes), it isn't a cumbersome dataset (21 MB), but there are still over 40 years of data, spanning from 1979 to the present, 2021.
 
 #+begin_src python :session one :exports both :results none
   
