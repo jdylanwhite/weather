@@ -4,7 +4,7 @@
 
 * Introduction
 
-In this document, I'm practicing using Org-mode with Babel to run snippets of python, using Python to read and operate on weather data from netCDF in some of the ways I had known previously in the NCAR Command Language (NCL) which is no longer supported. A small but powerful dataset to learn with is the Outgoing Longwave Radiation dataset, so let's check that out here.
+In this document, I'm practicing using Org-mode with Babel to run snippets of Python and using Python to read and operate on weather data from netCDF in some of the ways I had known previously in the NCAR Command Language (NCL) which is no longer supported. A small but powerful dataset to learn with is the Outgoing Longwave Radiation dataset, so let's check that out here.
 
 Outgoing Longwave Radiation (OLR) is terrestrial electromagnetic radiation in the infrared wavelengths of light, roughly 3 to 100 \(\mu\)m, released into space. This dataset can tell us a lot about the atmosphere. For example, OLR can be used as a proxy for convection since cloud top temperatures are cooler, so we can examine things like the Madden-Julian Oscillation (MJO) where convection is highly correlated to the atmospheric phenomenon.
 
@@ -24,7 +24,7 @@ Let's start by dowloading the monthly OLR data using Python. We'll use the =os= 
   dataUrl = "https://www.ncei.noaa.gov/data/"+\
             "outgoing-longwave-radiation-monthly/"+\
             "access/olr-monthly_v02r07_197901_202107.nc"
-
+           
   # Grab the file name
   dataDir = "./data/"
   fileName = os.path.basename(dataUrl)
@@ -37,9 +37,6 @@ Let's start by dowloading the monthly OLR data using Python. We'll use the =os= 
 #+end_src
 
 There is only one file sitting in the NCEI directory, storing all monthly averages from January 1979 until the most recent full month. So the link will have to be updated in future months to reflect the file that's sitting in the directory.
-
-** TODO See if we can find a way to identify the most recent file sitting in the NCEI directory
-** TODO Download the daily files
 
 * Annual Averages
 
@@ -289,7 +286,3 @@ Viewing meteorological fields with time and longitude axes is a good way to visu
 [[file:images/hovmoller.png]]
  
 In this dataset, we can't really see any propagating waves. If we could, we'd see diagonal streaks of positive and negative altering perturbations. We're looking at monthly averages, so any propagating waves that would show up here would need to have a period of more than two months to show up, and that's too large for most atmospheric oscillations that we'd expect to show up in OLR. The only streaks here are horizontal, with more OLR in the May - October months, and less OLR in the Novermber - April months. We're in the northern hemisphere for this diagram, so we're simply seeing the seasonal variation in the Earth's reflection/emmission. Note that the effect of land mass also shows up niceley here, as seen by the consistent vertical patterns.
-
-** TODO Figure out how to remove white strips from edges of plot.
-
-* TODO Wavenumber-Frequency Diagram
