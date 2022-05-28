@@ -1,0 +1,154 @@
+#+title: Global Precipitation Measurement (GPM)
+#+author: J. Dylan White
+#+date: <2021-11-11 Thu>
+
+* Introduction
+
+Using calibrated instruments aboard satellites, we can estimate precipitation measurements across the globe. The [[https://gpm.nasa.gov/missions/GPM][Global Precipitation Measurement Mission (GPM)]] is a joint effort, initiated by NASA and the Japan Aerospace Exploration Agency (JAXA) to provide global estimates of rain and snowfall. Additionally, other international space agencies across the globe contribute to this mission.
+
+The GPM uses a [[https://gpm.nasa.gov/missions/GPM/core-observatory]["core observatory" satellite]] with a complex radar/radiometer sensor to measure precipitation from space and to unify measurements of partner satellites in the [[https://gpm.nasa.gov/missions/GPM/constellation][GPM constellation]]. 
+
+Different levels of data are freely available from [[https://gpm.nasa.gov/data/directory][NASA's GPM data directory]] with ample descriptions of the different data available and links to algorithm documentations for how the data was derived from raw sensor input data. You can get gridded data with a grid spacing of either 0.25 or 5 degrees and temporal frequencies ranging from hourly up to monthly. I'll be using NASA's Goddard Earth Sciences (GES) Data and Information Services Center (DISC) to access the [[https://disc.gsfc.nasa.gov/datasets/GPM_3CMB_06/summary?keywords=3CMB][0.25 degree monthly GPM data]]. Note that you can also retrieve [[https://gpm.nasa.gov/missions/trmm][TRMM]] ( a precursor mission of GPM that fulfilled a similar role) data of the same format more data is necessary.
+
+* Download the Data
+
+We need to first download the data. It is available in HDF5 format stored in monthly files, in yearly directories. To download the file, we'll need to loop through the years and months and build the URLs for each data file to download. An example data URL for monthly, 0.25 degree gridspacing GPM DPR and GMI (Combined Precipitation) Level 3 for the month of January, 2020, is shown below:
+
+#+begin_src
+https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/GPM_3CMB.06/2020/3B-MO.GPM.DPRGMI.CORRAGM.20200101-S000000-E235959.01.V06A.HDF5
+#+end_src
+
+So we'll need to handle parse the URL for the specific month and year that we need. For now, we'll just download the monthly files for all of 2020.
+
+Before downloading the files, we need to [[https://urs.earthdata.nasa.gov/][register for an account]]. I also followed [[https://disc.gsfc.nasa.gov/earthdata-login][these instructions]] to provide authorization for authentification of my account for the GES DISC data archive. Once the account is set up, we'll follow the GES DISC's [[https://disc.gsfc.nasa.gov/data-access#python-requests][instructions for using Python]] to download files. The steps are quite easy, and make it so we don't need to have the username and password to access the Earthdata login.
+
+#+begin_src python :session one :exports both :results output
+
+  # Import modules
+  import os
+  import requests
+  import datetime
+
+  # Set the months and years to download the data
+  monthList = [i+1 for i in range(1)] 
+  yearList = [2020]
+
+  # Loop through months and years
+  for year in yearList:
+      for month in monthList:
+
+          # Parse the date string
+          date = datetime.datetime(year,month,1)
+          dateString = date.strftime("%Y%m%d")
+
+          # Set URL of data to download
+          # dataUrl = "https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/"+\
+          #          "GPM_3CMB.06/"+str(year)+"/3B-MO.GPM.DPRGMI.CORRAGM."+\
+          #          dateString+"-S000000-E235959."+str(month).zfill(2)+\
+          #          ".V06A.HDF5"
+          dataUrl = "https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3"+\
+                    "/GPM_3IMERGM.06/"+str(year)+"/3B-MO.MS.MRG.3IMERG."+\
+                    dateString+"-S000000-E235959."+str(month).zfill(2)+\
+                    ".V06B.HDF5"
+
+          # Set the output file name
+          dataDir = './data/'
+          fileName = os.path.basename(dataUrl)
+          filePath = os.path.join(dataDir,fileName)
+
+          # Check if the file exists, and if it doesn't, download it
+          if not os.path.exists(filePath):
+              res = requests.get(dataUrl)
+              res.raise_for_status()
+              with open(filePath,'wb') as f:
+                  f.write(res.content)
+
+#+end_src
+
+#+RESULTS:
+
+** Plotting the Data
+
+It would be nice to not have to deal with separate monthly files. We'll use =h5py= to read in the =hdf5= file and explore the data first. There are two grids: =G1= and =G2= corresponding to the 0.25 degree grid and the 5 degree grid.
+
+#+begin_src python :session one :exports both :results file
+
+  # Import modules
+  import h5py
+  import numpy as np
+  import matplotlib.pyplot as plt
+  import cartopy.crs as ccrs
+  from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+  from mpl_toolkits.axes_grid1 import make_axes_locatable
+  from cartopy.util import add_cyclic_point
+  
+  # Set the months and years to download the data
+  month = 1 
+  year = 2020
+
+  # Set the data directory path
+  dataDir = './data/'
+
+  # Parse the date string
+  date = datetime.datetime(year,month,1)
+  dateString = date.strftime("%Y%m%d")
+
+  # Set file path
+  fileName = "3B-MO.MS.MRG.3IMERG."+dateString+"-S000000-E235959."+\
+             str(month).zfill(2)+".V06B.HDF5"
+  filePath = os.path.join(dataDir,fileName)
+
+  # Read the HDF5 file
+  f = h5py.File(filePath,'r')
+  lat = f['Grid/lat'][:]
+  lon = f['Grid/lon'][:]
+  precip = f['Grid/precipitation'][:]
+  precip = np.transpose(precip)
+  precip = np.squeeze(np.where(precip==-9999.9,np.nan,precip))
+  f.close()
+
+  # Intialize the figure
+  fig = plt.figure(figsize=(11,8.5))
+
+  # Set up axes using a specified projection
+  ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0))
+
+  # Make a filled contour plot
+  contour = ax.contourf(lon,lat,precip,
+                        transform=ccrs.PlateCarree(),
+                        cmap="viridis",extend='both')
+
+  # Set up the tickmarks
+  ax.set_xticks(np.arange(-180,181,45)[1:-1], crs=ccrs.PlateCarree())
+  ax.set_yticks(np.arange(-90,91,30)[1:-1], crs=ccrs.PlateCarree())
+  lon_formatter = LongitudeFormatter(number_format='.0f',
+                                     degree_symbol='')
+  lat_formatter = LatitudeFormatter(number_format='.0f',
+                                    degree_symbol='')
+  ax.xaxis.set_major_formatter(lon_formatter)
+  ax.yaxis.set_major_formatter(lat_formatter)
+
+  # Turn on coastlines
+  ax.coastlines()
+
+  # Set axis font sizes
+  ax.tick_params(labelsize=14)
+
+  # Configure colorbar
+  cbar=plt.colorbar(contour,orientation="horizontal",pad=0.1)
+  cbar.ax.tick_params(labelsize=14)
+  #cbar.set_label('mm hr$^{-1}$',fontsize=16)
+
+  # Save the figure
+  fileName = 'images/monthly_precip.png'
+  plt.savefig(fileName,dpi=300)
+  plt.close()
+  print(fileName)
+
+#+end_src
+
+#+RESULTS:
+: Grid
+: <KeysViewHDF5 ['nv', 'lonv', 'latv', 'time', 'lon', 'lat', 'time_bnds', 'lon_bnds', 'lat_bnds', 'precipitation', 'randomError', 'gaugeRelativeWeighting', 'probabilityLiquidPrecipitation', 'precipitationQualityIndex']>
+: (1800, 3600)
+: images/monthly_precip.png

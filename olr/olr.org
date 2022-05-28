@@ -4,7 +4,7 @@
 
 * Introduction
 
-In this document, I'm practicing using Org-mode with Babel to run snippets of Python and using Python to read and operate on weather data from netCDF in some of the ways I had known previously in the NCAR Command Language (NCL) which is no longer supported. A small but powerful dataset to learn with is the Outgoing Longwave Radiation dataset, so let's check that out here.
+I'm practicing using Org-mode with Babel to run snippets of Python and using Python to read and operate on weather data from netCDF in some of the ways I had known previously in the NCAR Command Language (NCL) which is no longer supported. A small but powerful dataset to learn with is the Outgoing Longwave Radiation dataset, so let's check that out here.
 
 Outgoing Longwave Radiation (OLR) is terrestrial electromagnetic radiation in the infrared wavelengths of light, roughly 3 to 100 \(\mu\)m, released into space. This dataset can tell us a lot about the atmosphere. For example, OLR can be used as a proxy for convection since cloud top temperatures are cooler, so we can examine things like the Madden-Julian Oscillation (MJO) where convection is highly correlated to the atmospheric phenomenon.
 
