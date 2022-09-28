@@ -1,0 +1,245 @@
+#+title: Globe To Grid Conversion
+#+author: J. Dylan White
+#+PROPERTY: header-args:python :session *py* :mkdirp yes
+
+* Things to add
+
+** TODO Functions to map IDs
+** TODO Convert all code blocks to functions
+
+* Introduction
+
+The overall goal of this project, at least initially, is to provide climatological weather data across the globe in one coherent, consistent manner. Services like this already exist to some extent, but my goal here is to create something that is
+
+  1. customizable as interests and utility for the project grow,
+  2. consistent for the whole globe, not just certain regions, and
+  3. offers more information for my own personal needs.
+
+Personally, my main utility for the project is to assess what type of weather I may expect for traveling or moving abroad. For example, if I decide I want to move to Spain, how are the summers and winters there? Or, I've heard the weather is great year-round in places like California, where else has similar weather?
+
+Many weather datasets are available on a *grid* of latitudes and longitudes, so we'll be able to say things like "the annual average temperature between 35 and 40 degrees North and 75 and 80 degrees West is 60 degrees F". For the purpose of this project however, it may be more useful to say something like "the annual of the state of Viriginia is 60 degrees F". Of course, country boundaries are not confined to rigid grids, so we'll need to come up with a way to map the grid to countries and major cities. This is the purpose of this part of the project. Since weather datasets are delivered with different grid sizes, the objective here is to develop a way to take any specified grid and return the countries or cities that fall within a particular grid cell.
+
+* Input Data
+
+ESRI has data available for both [[https://hub.arcgis.com/datasets/esri::world-countries-generalized/about][World Countries]] and [[https://hub.arcgis.com/datasets/esri::world-cities/about][World Cities]]. We'll download the shapefiles for both of these datasets. We'll ultimately need to make functions to map back and forth between the grid, the cities, and the countries.
+
+The other input for our functions here is the grid of latitudes and longitudes. We want this to take any grid from the weather data, so we'll build it to simply take two arrays (the latitudes and longitudes), and then contruct a database of cities and contries that fall within each grid cell.
+
+* Importing Modules
+
+We will need geopandas for reading the shapefiles that we have downloaded.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  import geopandas as gpd
+  import numpy as np
+  from shapely.geometry import Polygon
+
+#+end_src
+
+* Inspecting the Shapefiles
+
+Using Python, let's first inspect the shapefiles for the country and cities.
+
+** Read in the Shapfiles
+
+Reading in the shapefiles is pretty straighforwad with geopandas using the =read_file()= function. We'll also trim out some of the unnecessary additional information from the original dataset. We only need names of places and their coordinates for now.
+
+Start by reading the in the cities shapefile which I have stored in =./data/shapefiles/World_Cities.shp=.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def read_cities_shp(shpdir="./data/shapefiles/"):
+
+      """
+      Read the shapefile for cities, and only keep certain columns.
+      """
+
+      # Read the cities shapefile
+      gdfCities = gpd.read_file(shpdir+"World_Cities.shp")
+
+      # Limit the columns to what we need
+      keepColumns = ["CITY_NAME","CNTRY_NAME","geometry"]
+      gdfCities = gdfCities.loc[:,keepColumns]
+
+      return gdfCities
+
+#+end_src
+
+Now let's see how the data looks.
+
+#+begin_src python :results value
+
+  # Read the cities shapefile
+  gdfCities = read_cities_shp()
+  gdfCities.head()
+
+#+end_src
+
+#+RESULTS:
+:               CITY_NAME CNTRY_NAME                     geometry
+: 0                Cuiaba     Brazil  POINT (-56.09300 -15.61500)
+: 1              Brasilia     Brazil  POINT (-47.89775 -15.79211)
+: 2               Goiania     Brazil  POINT (-49.25500 -16.72700)
+: 3          Campo Grande     Brazil  POINT (-54.61600 -20.45100)
+: 4  Pedro Juan Caballero   Paraguay  POINT (-55.74800 -22.53300)
+
+Now we'll read in the countries shapefile which I have stored in =./data/shapefiles/World_Countries__Generalized_.shp.=
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def read_countries_shp(shpdir="./data/shapefiles/"):
+
+      """
+      Read the shapefile for countries, and only keep certain columns.
+      """
+
+      # Read the countries shapefile
+      gdfCountries = gpd.read_file(shpdir+"World_Countries__Generalized_.shp")
+
+      # Limit the columns to what we need
+      keepColumns = ["COUNTRY","geometry"]
+      gdfCountries = gdfCountries.loc[:,keepColumns]
+
+      return gdfCountries
+
+#+end_src
+
+Let's also have a look at the countries data
+
+#+begin_src python :results value
+
+  # Read the cities shapefile
+  gdfCountries = read_countries_shp()
+  gdfCountries.head()
+
+#+end_src
+
+#+RESULTS:
+:           COUNTRY                                           geometry
+: 0     Afghanistan  POLYGON ((61.27655 35.60725, 61.29638 35.62854...
+: 1         Albania  POLYGON ((19.57083 41.68527, 19.58195 41.69569...
+: 2         Algeria  POLYGON ((4.60335 36.88791, 4.63555 36.88638, ...
+: 3  American Samoa  POLYGON ((-170.74390 -14.37555, -170.74942 -14...
+: 4         Andorra  POLYGON ((1.44584 42.60194, 1.48653 42.65042, ...
+
+* Construct a Grid
+
+Now we need to create arrays for our grid, spanning from -90 to 90 degrees latitude and from -180 to 180 degrees longitude, by some defined =gridspacing=.
+
+#+begin_src python :tangle "./grid.py" :results silent 
+
+  def construct_grid_arrays(gridspacing=2.5):
+
+      """
+      Using a given gridspacing, build an evenly spaced
+      latitude and longitude array.
+      """
+
+      # Build the latitude and longitude array
+      latitude = np.arange(-90,90,gridspacing)
+      longitude = np.arange(-180,180,gridspacing)
+
+      return longitude, latitude
+
+#+end_src
+
+Now with the arrays, we can create a grid of polygon tiles, and send them to a shapefile. We'll need to use =shapely.geoemetry.Polygon= objects to turn these lists of coordinates into actual geometry features for our shapefile.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def construct_grid(shpdir="./data/shapefiles/",gridspacing=2.5):
+
+      """
+      Create the grid as a series of square tiles, then write the
+      results to a shapefile
+      """
+
+      # Construct the lat/lon arrays
+      longitude, latitude = construct_grid_arrays(gridspacing)
+
+      # Create each grid cell as a polygon
+      polygonList = []
+      for lat in latitude:
+          for lon in longitude:
+              polygonList.append(Polygon([(lon, lat),
+                                          (lon+gridspacing, lat),
+                                          (lon+gridspacing, lat+gridspacing),
+                                          (lon, lat+gridspacing)]))
+
+      # Create the grid geodataframe and send to shapefile
+      gdfGrid = gpd.GeoDataFrame({'geometry':polygonList})
+      gdfGrid.to_file(shpdir+"grid_"+str(gridspacing)+".shp")
+
+      return gdfGrid
+
+#+end_src
+
+Let's see how our grid dataframe looks.
+
+#+begin_src python :results value
+
+  gdfGrid = construct_grid()
+  gdfGrid.head()
+
+#+end_src
+
+#+RESULTS:
+:                                             geometry
+: 0  POLYGON ((-180.00000 -90.00000, -177.50000 -90...
+: 1  POLYGON ((-177.50000 -90.00000, -175.00000 -90...
+: 2  POLYGON ((-175.00000 -90.00000, -172.50000 -90...
+: 3  POLYGON ((-172.50000 -90.00000, -170.00000 -90...
+: 4  POLYGON ((-170.00000 -90.00000, -167.50000 -90...
+
+* Find Intersecting Countries and Cities in the Grid
+
+With our geodataframes now, we can figure out which countries and cities fall within each grid cell. We can do this with a spatial join via =gpd.sjoin=.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def grid_country_sjoin(idDir="./data/ids/"):
+
+      """
+      Use a spatial join to find indices for overlapping grids and countries.
+      """
+
+      # Perform spatial join
+      gdfIntersectsCountries = gpd.sjoin(gdfGrid,gdfCountries,how="left")
+
+      # Drop NA values, and only keep the index column
+      dfIntersectsCountries = gdfIntersectsCountries.dropna()['index_right']
+
+      # Rename column
+      dfIntersectsCountries.columns = ['country_id']
+
+      # Send output to CSV
+      dfIntersectsCountries.to_csv(idDir+'grid_country_sjoin.csv',index_label="grid_id")
+
+      return dfIntersectsCountries
+
+  def grid_city_sjoin(idDir="./data/indices/"):
+
+      """
+      Use a spatial join to find indices for overlapping grids and cities.
+      """
+
+      # Perform spatial join
+      gdfIntersectsCities = gpd.sjoin(gdfGrid,gdfCities,how="left")
+
+      # Drop NA values, and only keep the index column
+      dfIntersectsCities = gdfIntersectsCities.dropna()['index_right']
+
+      # Rename column
+      dfIntersectsCities.columns = ['city_id']
+
+      # Send output to CSV
+      dfIntersectsCities.to_csv(idDir+'grid_city_sjoin.csv',index_label="grid_id")
+
+      return dfIntersectsCities
+
+#+end_src
+
+* Map IDs to Values
+
+Now that we know the IDs for which country/city falls within a grid, let's set up some functions to map the IDs to the actual grids, countries, or cities.
