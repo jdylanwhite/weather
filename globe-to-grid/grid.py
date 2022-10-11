@@ -1,4 +1,5 @@
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 from shapely.geometry import Polygon
 
@@ -83,14 +84,14 @@ def grid_country_sjoin(idDir="./data/ids/"):
     dfIntersectsCountries = gdfIntersectsCountries.dropna()['index_right']
 
     # Rename column
-    dfIntersectsCountries.columns = ['country_id']
+    dfIntersectsCountries = pd.DataFrame({"country_id":dfIntersectsCountries})
 
     # Send output to CSV
     dfIntersectsCountries.to_csv(idDir+'grid_country_sjoin.csv',index_label="grid_id")
 
     return dfIntersectsCountries
 
-def grid_city_sjoin(idDir="./data/indices/"):
+def grid_city_sjoin(idDir="./data/ids/"):
 
     """
     Use a spatial join to find indices for overlapping grids and cities.
@@ -103,9 +104,33 @@ def grid_city_sjoin(idDir="./data/indices/"):
     dfIntersectsCities = gdfIntersectsCities.dropna()['index_right']
 
     # Rename column
-    dfIntersectsCities.columns = ['city_id']
+    dfIntersectsCities = pd.DataFrame({"city_id":dfIntersectsCities})
 
     # Send output to CSV
     dfIntersectsCities.to_csv(idDir+'grid_city_sjoin.csv',index_label="grid_id")
 
     return dfIntersectsCities
+
+def find_country_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
+
+    """
+    Look up which grids contain a specified country and return them as a list.
+    """
+
+    # Read the spatial join CSV
+    df = pd.read_csv(idPath)
+
+    # Find the grid IDs for a given country
+    gridList = df.loc[df["country_id"]==countryId]['grid_id'].to_list()
+
+    return gridList
+
+def find_city_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
+
+    # Read the spatial join CSV
+    df = pd.read_csv(idPath)
+
+    # Find the grid IDs for a given country
+    gridList = df.loc[df["city_id"]==cityId]['grid_id'].to_list()
+
+    return gridList

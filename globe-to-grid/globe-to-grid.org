@@ -4,8 +4,17 @@
 
 * Things to add
 
-** TODO Functions to map IDs
-** TODO Convert all code blocks to functions
+** DONE Functions to map IDs
+CLOSED: [2022-10-11 Tue 15:34]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-10-11 Tue 15:34]
+:END:
+** DONE Convert all code blocks to functions
+CLOSED: [2022-10-11 Tue 15:34]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-10-11 Tue 15:34]
+:END:
+** TODO Add a generic POINT to grid conversion
 
 * Introduction
 
@@ -32,6 +41,7 @@ We will need geopandas for reading the shapefiles that we have downloaded.
 #+begin_src python :tangle "./grid.py" :results silent
 
   import geopandas as gpd
+  import pandas as pd
   import numpy as np
   from shapely.geometry import Polygon
 
@@ -211,14 +221,14 @@ With our geodataframes now, we can figure out which countries and cities fall wi
       dfIntersectsCountries = gdfIntersectsCountries.dropna()['index_right']
 
       # Rename column
-      dfIntersectsCountries.columns = ['country_id']
+      dfIntersectsCountries = pd.DataFrame({"country_id":dfIntersectsCountries})
 
       # Send output to CSV
       dfIntersectsCountries.to_csv(idDir+'grid_country_sjoin.csv',index_label="grid_id")
 
       return dfIntersectsCountries
 
-  def grid_city_sjoin(idDir="./data/indices/"):
+  def grid_city_sjoin(idDir="./data/ids/"):
 
       """
       Use a spatial join to find indices for overlapping grids and cities.
@@ -231,7 +241,7 @@ With our geodataframes now, we can figure out which countries and cities fall wi
       dfIntersectsCities = gdfIntersectsCities.dropna()['index_right']
 
       # Rename column
-      dfIntersectsCities.columns = ['city_id']
+      dfIntersectsCities = pd.DataFrame({"city_id":dfIntersectsCities})
 
       # Send output to CSV
       dfIntersectsCities.to_csv(idDir+'grid_city_sjoin.csv',index_label="grid_id")
@@ -240,6 +250,112 @@ With our geodataframes now, we can figure out which countries and cities fall wi
 
 #+end_src
 
+Let's take a look at our joined tables for countries.
+
+#+begin_src python :results value
+
+  dfIntersectionCountries = grid_country_sjoin()
+  dfIntersectionCountries.head()
+  
+#+end_src
+
+#+RESULTS:
+:    country_id
+: 0         7.0
+: 1         7.0
+: 2         7.0
+: 3         7.0
+: 4         7.0
+
+And also for our cities.
+
+#+begin_src python :results value
+
+  dfIntersectionCities = grid_city_sjoin()
+  dfIntersectionCities.head()
+  
+#+end_src
+
+#+RESULTS:
+:       city_id
+: 2059     27.0
+: 2060     28.0
+: 2204     25.0
+: 2208     26.0
+: 2490     23.0
+
 * Map IDs to Values
 
 Now that we know the IDs for which country/city falls within a grid, let's set up some functions to map the IDs to the actual grids, countries, or cities.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def find_country_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
+
+      """
+      Look up which grids contain a specified country and return them as a list.
+      """
+
+      # Read the spatial join CSV
+      df = pd.read_csv(idPath)
+
+      # Find the grid IDs for a given country
+      gridList = df.loc[df["country_id"]==countryId]['grid_id'].to_list()
+
+      return gridList
+
+  def find_city_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
+
+      """
+      Look up which grids contain a specified city and return them as a list
+      """
+
+      # Read the spatial join CSV
+      df = pd.read_csv(idPath)
+
+      # Find the grid IDs for a given country
+      gridList = df.loc[df["city_id"]==cityId]['grid_id'].to_list()
+
+      return gridList
+
+#+end_src
+
+Now let's test out our functions for Ireland and Dublin, as an example. Ireland is index 108 in the countries shapefile, and Dublin is index 1606 in the cities shapefile.
+
+#+begin_src python :results output
+
+  irelandGridList = find_country_grids(108)
+  print("Ireland is contained in the following grids:\n"+str(irelandGridList))
+  print("The coordinates of those grids are:")
+  for coord in gdfGrid.iloc[irelandGridList,:]['geometry'].astype(str).to_list():
+      print("\t"+coord)
+
+  dublinGridList = find_city_grids(1606)
+  print("\nDublin is contained in the following grids:\n"+str(dublinGridList))
+  print("The coordinates of those grids are:")
+  for coord in gdfGrid.iloc[dublinGridList,:]['geometry'].astype(str).to_list():
+      print("\t"+coord)
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Ireland is contained in the following grids:
+[8131, 8132, 8133, 8275, 8276, 8277, 8420, 8421]
+The coordinates of those grids are:
+	POLYGON ((-12.5 50, -10 50, -10 52.5, -12.5 52.5, -12.5 50))
+	POLYGON ((-10 50, -7.5 50, -7.5 52.5, -10 52.5, -10 50))
+	POLYGON ((-7.5 50, -5 50, -5 52.5, -7.5 52.5, -7.5 50))
+	POLYGON ((-12.5 52.5, -10 52.5, -10 55, -12.5 55, -12.5 52.5))
+	POLYGON ((-10 52.5, -7.5 52.5, -7.5 55, -10 55, -10 52.5))
+	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
+	POLYGON ((-10 55, -7.5 55, -7.5 57.5, -10 57.5, -10 55))
+	POLYGON ((-7.5 55, -5 55, -5 57.5, -7.5 57.5, -7.5 55))
+
+Dublin is contained in the following grids:
+[8277]
+The coordinates of those grids are:
+	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
+#+end_example
+
+
