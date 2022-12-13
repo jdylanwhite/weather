@@ -1,0 +1,200 @@
+#+title: Monthly Mean Global Temperatures
+#+author: J. Dylan White
+#+date: <2022-12-13 Tue>
+#+PROPERTY: header-args:python :session *py* :mkdirp yes
+
+* Introduction
+
+The [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysis]] dataset has globally modelled meteorological quantities such as temperature, wind speeds, and pressure. For now, we'll look at the monthly means of surface temperatures. The link to download the file can be found [[https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface/air.mon.mean.nc][here]].
+
+* Explore the Data
+
+#+begin_src python :results value
+
+  # Import modules
+  import xarray
+
+  # Set the file path
+  filePath = "./data/air.mon.mean.nc"
+  
+  # Open the dataset with xarray
+  ds = xarray.open_dataset(filePath)
+
+  # Show a summary of the data 
+  ds
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, time: 899)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 0.0 2.5 5.0 7.5 10.0 ... 350.0 352.5 355.0 357.5
+  ,* time     (time) datetime64[ns] 1948-01-01 1948-02-01 ... 2022-11-01
+Data variables:
+    air      (time, lat, lon) float32 ...
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:16 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean air.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+#+end_example
+
+The dataset spans the globe every 2.5 degrees latitude and longitude, and monthly from 1948 to the present. One thing we may want to do is convert the 0 to 360 degree longitudes to -180 to 180 degree longitudes.
+
+#+begin_src python :results value
+
+  # Convert from 0 to 360 to -180 to 180
+  ds.coords['lon'] = (ds.coords['lon'] + 180) % 360 - 180
+
+  # Sort by longitudes to rearrage
+  ds = ds.sortby(ds.lon)
+
+  # Display the updated summary
+  ds
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, time: 899)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
+  ,* time     (time) datetime64[ns] 1948-01-01 1948-02-01 ... 2022-11-01
+Data variables:
+    air      (time, lat, lon) float32 ...
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:16 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean air.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+#+end_example
+
+* Plot Global Average
+
+To make sure everything looks right, let's average over the entire time range and plot the global multi-year average.
+
+#+begin_src python :results value file :exports both
+
+  # Import modules
+  import numpy as np
+  import cartopy.crs as ccrs
+  from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+  from mpl_toolkits.axes_grid1 import make_axes_locatable
+  from cartopy.util import add_cyclic_point
+  import matplotlib.pyplot as plt
+
+  # Get the time average
+  tempTimeAvg = ds['air'].mean(dim='time')
+
+  # Intialize the figure
+  fig = plt.figure(figsize=(11,8.5))
+
+  # Set up axes using a specified projection
+  ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0))
+
+  # Add cyclic point to data
+  data = tempTimeAvg
+  data, lon = add_cyclic_point(data,coord=data['lon'])
+
+  # Make a filled contour plot
+  contour = ax.contourf(lon,tempTimeAvg['lat'],data,
+                        transform=ccrs.PlateCarree(),
+                        cmap="bwr",extend='both',
+                        levels=np.arange(-45,55,10))
+
+  # Set up the tickmarks
+  ax.set_xticks(np.arange(-180,181,45)[1:-1], crs=ccrs.PlateCarree())
+  ax.set_yticks(np.arange(-90,91,30)[1:-1], crs=ccrs.PlateCarree())
+  lon_formatter = LongitudeFormatter(number_format='.0f',
+                                     degree_symbol='')
+  lat_formatter = LatitudeFormatter(number_format='.0f',
+                                    degree_symbol='')
+  ax.xaxis.set_major_formatter(lon_formatter)
+  ax.yaxis.set_major_formatter(lat_formatter)
+
+  # Turn on coastlines
+  ax.coastlines()
+
+  # Set axis font sizes
+  ax.tick_params(labelsize=14)
+
+  # Configure colorbar
+  cbar=plt.colorbar(contour,orientation="horizontal",pad=0.1)
+  cbar.ax.tick_params(labelsize=14)
+  cbar.set_label('$^\circ$C',fontsize=16)
+
+  # Add a title
+  ax.set_title("1948-2022 Average of Surface Temperatures",fontsize=18)
+
+  # Save the figure
+  fileName = 'images/multiyear_average.png'
+  plt.savefig(fileName,dpi=100)
+  plt.close()
+  fileName
+
+#+end_src
+
+#+RESULTS:
+[[file:images/multiyear_average.png]]
+
+And indeed, the long-term-averaged global distribution of surface temperatures looks very much like we should expect.
+
+* Globally Averaged Temperatures
+
+Now let's just have a look at the globally averaged time series of temperatures for this dataset.
+
+#+begin_src python :results value file
+
+  # Average across the globe
+  data = ds['air'].mean(dim=['lon','lat'])
+
+  # Smooth out the average with a 2 year moving average
+  data = data.rolling(time=24,center=True).mean(dim="time")
+
+  # Initalize the plot
+  fig,ax = plt.subplots(figsize=(11,8.5))
+
+  # Draw the line plot
+  ax.plot(data['time'],data,linewidth=2.0)
+
+  # Limit the x axis since some times are now NaN due to rolling average
+  daStacked = data.stack(notnull=['time'])
+  daStacked[daStacked.notnull()]
+  minTime = daStacked[daStacked.notnull()]['time'][0]
+  maxTime = daStacked[daStacked.notnull()]['time'][-1]
+  ax.set_xlim([minTime,maxTime])
+
+  # Add titles and labels
+  ax.set_xlabel("Date",fontsize=16)
+  ax.set_ylabel("Surface Temperature, $^\circ$C",fontsize=16)
+  ax.set_title("Globally Averaged Surface Temperatures\nTwo Year Rolling Average",fontsize=18)
+
+  # Change tick mark fontsize
+  ax.tick_params(axis='both', which='major', labelsize=14)
+  ax.tick_params(axis='both', which='minor', labelsize=14)
+  
+  # Save the figure
+  fileName = 'images/global_average.png'
+  plt.savefig(fileName,dpi=100)
+  plt.close()
+  fileName
+
+#+end_src
+
+#+RESULTS:
+[[file:images/global_average.png]]
+
+And with this, we can see the temperatures rising globally, showing a 1.5 degree Celcius increase over the last 80 years. This is actually the first time I've bothered to tinker with a dataset and show this global-average trend! It's kind of scary seeing the results firsthand....
