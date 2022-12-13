@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-from shapely.geometry import Polygon
+from shapely.geometry import Point, Polygon
 
 def read_cities_shp(shpdir="./data/shapefiles/"):
 
@@ -111,10 +111,10 @@ def grid_city_sjoin(idDir="./data/ids/"):
 
     return dfIntersectsCities
 
-def find_country_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
+def find_country_id_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
 
     """
-    Look up which grids contain a specified country and return them as a list.
+    Look up which grids contain a specified country index and return them as a list.
     """
 
     # Read the spatial join CSV
@@ -125,7 +125,11 @@ def find_country_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
 
     return gridList
 
-def find_city_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
+def find_city_id_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
+
+    """
+    Look up which grids contain a specified city index and return them as a list
+    """
 
     # Read the spatial join CSV
     df = pd.read_csv(idPath)
@@ -134,3 +138,60 @@ def find_city_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
     gridList = df.loc[df["city_id"]==cityId]['grid_id'].to_list()
 
     return gridList
+
+def find_country_name_grids(country,shpDir="./data/shapefiles/",idPath="./data/ids/grid_country_sjoin.csv"):
+
+    """
+    Look up which grids contain a specified country and return them as a list.
+    """
+
+    # Read the countries shapefile
+    gdfCountries = read_countries_shp(shpDir)
+
+    # Get the ID of the given country
+    countryId = gdfCountries.index[gdfCountries['COUNTRY'] == country].tolist()[0]
+
+    # Find the country grid cells by ID
+    countryGridList = find_country_id_grids(countryId)
+
+    return countryGridList
+
+def find_city_name_grids(city,country,shpDir="./data/shapefiles/",idPath="./data/ids/grid_city_sjoin.csv"):
+
+    """
+    Look up which grids contain a specified city and country and return them as a list.
+    """
+
+    # Read the countries shapefile
+    gdfCities = read_cities_shp(shpDir)
+
+    # Get the ID of the given country
+    cityId = gdfCities.index[(gdfCities["CITY_NAME"] == city) & (gdfCities['CNTRY_NAME'] == country)]
+    cityId = cityId.tolist()[0]
+
+    # Find the country grid cells by ID
+    cityGridList = find_city_id_grids(cityId)
+
+    return cityGridList
+
+def find_point_grids(lon,lat,shpdir="./data/shapefiles/",gridspacing=2.5):
+
+    """
+    Look up which grid cell contains a specified latitude and longitude.
+    """
+
+    # Read the grid shapefile
+    gridPath = shpdir+"grid_"+str(gridspacing)+".shp"
+    gdfGrid = gpd.read_file(gridPath)
+
+    # Create point geometry
+    point = Point(lon,lat)
+    gdfPoint = gpd.GeoDataFrame({"geometry":[point]})
+
+    # Get the point grid intersection
+    gdfIntersection = gpd.sjoin(gdfGrid,gdfPoint,how="right")
+
+    # Find the grid that matches the intersection
+    gridId = gdfIntersection["index_left"].to_list()[0]
+
+    return gridId

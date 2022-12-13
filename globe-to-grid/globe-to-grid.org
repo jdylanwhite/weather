@@ -14,7 +14,12 @@ CLOSED: [2022-10-11 Tue 15:34]
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2022-10-11 Tue 15:34]
 :END:
-** TODO Add a generic POINT to grid conversion
+** DONE Add a generic POINT to grid conversion
+CLOSED: [2022-12-13 Tue 07:46]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-12-13 Tue 07:46]
+:END:
+** TODO Add a function to take a city and country name and find the grid
 
 * Introduction
 
@@ -43,7 +48,7 @@ We will need geopandas for reading the shapefiles that we have downloaded.
   import geopandas as gpd
   import pandas as pd
   import numpy as np
-  from shapely.geometry import Polygon
+  from shapely.geometry import Point, Polygon
 
 #+end_src
 
@@ -53,7 +58,7 @@ Using Python, let's first inspect the shapefiles for the country and cities.
 
 ** Read in the Shapfiles
 
-Reading in the shapefiles is pretty straighforwad with geopandas using the =read_file()= function. We'll also trim out some of the unnecessary additional information from the original dataset. We only need names of places and their coordinates for now.
+Reading in the shapefiles is pretty straightforward with geopandas using the =read_file()= function. We'll also trim out some of the unnecessary additional information from the original dataset. We only need names of places and their coordinates for now.
 
 Start by reading the in the cities shapefile which I have stored in =./data/shapefiles/World_Cities.shp=.
 
@@ -284,16 +289,16 @@ And also for our cities.
 : 2208     26.0
 : 2490     23.0
 
-* Map IDs to Values
+* Map IDs to Grid
 
 Now that we know the IDs for which country/city falls within a grid, let's set up some functions to map the IDs to the actual grids, countries, or cities.
 
 #+begin_src python :tangle "./grid.py" :results silent
 
-  def find_country_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
+  def find_country_id_grids(countryId,idPath="./data/ids/grid_country_sjoin.csv"):
 
       """
-      Look up which grids contain a specified country and return them as a list.
+      Look up which grids contain a specified country index and return them as a list.
       """
 
       # Read the spatial join CSV
@@ -304,10 +309,10 @@ Now that we know the IDs for which country/city falls within a grid, let's set u
 
       return gridList
 
-  def find_city_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
+  def find_city_id_grids(cityId,idPath="./data/ids/grid_city_sjoin.csv"):
 
       """
-      Look up which grids contain a specified city and return them as a list
+      Look up which grids contain a specified city index and return them as a list
       """
 
       # Read the spatial join CSV
@@ -324,13 +329,13 @@ Now let's test out our functions for Ireland and Dublin, as an example. Ireland 
 
 #+begin_src python :results output
 
-  irelandGridList = find_country_grids(108)
+  irelandGridList = find_country_id_grids(108)
   print("Ireland is contained in the following grids:\n"+str(irelandGridList))
   print("The coordinates of those grids are:")
   for coord in gdfGrid.iloc[irelandGridList,:]['geometry'].astype(str).to_list():
       print("\t"+coord)
 
-  dublinGridList = find_city_grids(1606)
+  dublinGridList = find_city_id_grids(1606)
   print("\nDublin is contained in the following grids:\n"+str(dublinGridList))
   print("The coordinates of those grids are:")
   for coord in gdfGrid.iloc[dublinGridList,:]['geometry'].astype(str).to_list():
@@ -358,4 +363,129 @@ The coordinates of those grids are:
 	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
 #+end_example
 
+* Map Country and City Names to Grid
+
+That's great, but it would be better if we didn't have to look up the index of the city or country in order to do this, but could instead pass the city or country name. Let's make a simple function that looks up the city or country index by name and then runs the functions above.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def find_country_name_grids(country,shpDir="./data/shapefiles/",idPath="./data/ids/grid_country_sjoin.csv"):
+
+      """
+      Look up which grids contain a specified country and return them as a list.
+      """
+
+      # Read the countries shapefile
+      gdfCountries = read_countries_shp(shpDir)
+
+      # Get the ID of the given country
+      countryId = gdfCountries.index[gdfCountries['COUNTRY'] == country].tolist()[0]
+
+      # Find the country grid cells by ID
+      countryGridList = find_country_id_grids(countryId)
+
+      return countryGridList
+
+  def find_city_name_grids(city,country,shpDir="./data/shapefiles/",idPath="./data/ids/grid_city_sjoin.csv"):
+
+      """
+      Look up which grids contain a specified city and country and return them as a list.
+      """
+
+      # Read the countries shapefile
+      gdfCities = read_cities_shp(shpDir)
+
+      # Get the ID of the given country
+      cityId = gdfCities.index[(gdfCities["CITY_NAME"] == city) & (gdfCities['CNTRY_NAME'] == country)]
+      cityId = cityId.tolist()[0]
+
+      # Find the country grid cells by ID
+      cityGridList = find_city_id_grids(cityId)
+
+      return cityGridList
+
+#+end_src
+
+Now let's test it out on the same country and city, Ireland and Dublin, as before to make sure we have the correct results.
+
+#+RESULTS:
+#+begin_src python :results output
+  
+  irelandGridList = find_country_name_grids("Ireland")
+  print("Ireland is contained in the following grids:\n"+str(irelandGridList))
+  print("The coordinates of those grids are:")
+  for coord in gdfGrid.iloc[irelandGridList,:]['geometry'].astype(str).to_list():
+      print("\t"+coord)
+
+  dublinGridList = find_city_name_grids("Dublin","Ireland")
+  print("\nDublin is contained in the following grids:\n"+str(dublinGridList))
+  print("The coordinates of those grids are:")
+  for coord in gdfGrid.iloc[dublinGridList,:]['geometry'].astype(str).to_list():
+      print("\t"+coord)
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Ireland is contained in the following grids:
+[8131, 8132, 8133, 8275, 8276, 8277, 8420, 8421]
+The coordinates of those grids are:
+	POLYGON ((-12.5 50, -10 50, -10 52.5, -12.5 52.5, -12.5 50))
+	POLYGON ((-10 50, -7.5 50, -7.5 52.5, -10 52.5, -10 50))
+	POLYGON ((-7.5 50, -5 50, -5 52.5, -7.5 52.5, -7.5 50))
+	POLYGON ((-12.5 52.5, -10 52.5, -10 55, -12.5 55, -12.5 52.5))
+	POLYGON ((-10 52.5, -7.5 52.5, -7.5 55, -10 55, -10 52.5))
+	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
+	POLYGON ((-10 55, -7.5 55, -7.5 57.5, -10 57.5, -10 55))
+	POLYGON ((-7.5 55, -5 55, -5 57.5, -7.5 57.5, -7.5 55))
+
+Dublin is contained in the following grids:
+[8277]
+The coordinates of those grids are:
+	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
+#+end_example
+
+* Find any Coordinate's Grid ID
+
+Now let's make a function to identify which grid cell any given point falls within.
+
+#+begin_src python :tangle "./grid.py" :results silent
+
+  def find_point_grids(lon,lat,shpdir="./data/shapefiles/",gridspacing=2.5):
+
+      """
+      Look up which grid cell contains a specified latitude and longitude.
+      """
+
+      # Read the grid shapefile
+      gridPath = shpdir+"grid_"+str(gridspacing)+".shp"
+      gdfGrid = gpd.read_file(gridPath)
+
+      # Create point geometry
+      point = Point(lon,lat)
+      gdfPoint = gpd.GeoDataFrame({"geometry":[point]})
+
+      # Get the point grid intersection
+      gdfIntersection = gpd.sjoin(gdfGrid,gdfPoint,how="right")
+
+      # Find the grid that matches the intersection
+      gridId = gdfIntersection["index_left"].to_list()[0]
+
+      return gridId
+
+#+end_src
+
+And again, we'll test it out on the coordinates of Dublin, Ireland, to make sure the results are consistent.
+
+#+begin_src python :results output
+
+  lon = -6.25735
+  lat = 53.34156 
+  gridId = find_point_grids(lon,lat)
+  print("The point",lon,"E",lat,"N is located in grid",gridId) 
+
+#+end_src
+
+#+RESULTS:
+: The point -6.25735 E 53.34156 N is located in grid 8277
 
