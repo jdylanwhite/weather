@@ -2,24 +2,10 @@
 #+author: J. Dylan White
 #+PROPERTY: header-args:python :session *py* :mkdirp yes
 
-* Things to add
+* Tasks
 
-** DONE Functions to map IDs
-CLOSED: [2022-10-11 Tue 15:34]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2022-10-11 Tue 15:34]
-:END:
-** DONE Convert all code blocks to functions
-CLOSED: [2022-10-11 Tue 15:34]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2022-10-11 Tue 15:34]
-:END:
-** DONE Add a generic POINT to grid conversion
-CLOSED: [2022-12-13 Tue 07:46]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2022-12-13 Tue 07:46]
-:END:
-** TODO Add a function to take a city and country name and find the grid
+** TODO Shift grid by half a grid cell so weather data is centered
+** TODO Add a center lat/lon column to the grid data
 
 * Introduction
 
@@ -31,7 +17,7 @@ The overall goal of this project, at least initially, is to provide climatologic
 
 Personally, my main utility for the project is to assess what type of weather I may expect for traveling or moving abroad. For example, if I decide I want to move to Spain, how are the summers and winters there? Or, I've heard the weather is great year-round in places like California, where else has similar weather?
 
-Many weather datasets are available on a *grid* of latitudes and longitudes, so we'll be able to say things like "the annual average temperature between 35 and 40 degrees North and 75 and 80 degrees West is 60 degrees F". For the purpose of this project however, it may be more useful to say something like "the annual of the state of Viriginia is 60 degrees F". Of course, country boundaries are not confined to rigid grids, so we'll need to come up with a way to map the grid to countries and major cities. This is the purpose of this part of the project. Since weather datasets are delivered with different grid sizes, the objective here is to develop a way to take any specified grid and return the countries or cities that fall within a particular grid cell.
+Many weather datasets are available on a *grid* of latitudes and longitudes, so we'll be able to say things like "the annual average temperature between 35 and 40 degrees North and 75 and 80 degrees West is 60 degrees F". For the purpose of this project however, it may be more useful to say something like "the annual of the state of Virginia is 60 degrees F". Of course, geopolitical boundaries are not confined to rigid grids, so we'll need to come up with a way to map the grid to countries and major cities. This is the purpose of this part of the project. Since weather datasets are delivered with different grid sizes, the objective here is to develop a way to take any specified grid and return the countries or cities that fall within a particular grid cell. We'll do this using Python.
 
 * Input Data
 
@@ -41,7 +27,7 @@ The other input for our functions here is the grid of latitudes and longitudes. 
 
 * Importing Modules
 
-We will need geopandas for reading the shapefiles that we have downloaded.
+We will need =geopandas= for reading the shapefiles that we have downloaded, =pandas= for managing non-geospatial dataframes, =numpy= to build the array, and =shapely= to handle geospatial geometries.
 
 #+begin_src python :tangle "./grid.py" :results silent
 

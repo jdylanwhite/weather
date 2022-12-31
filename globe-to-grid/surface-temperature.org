@@ -1,0 +1,127 @@
+#+title: Surface Temperatures
+#+author: J. Dylan White
+#+PROPERTY: header-args:python :session *py* :tangle "./sfc_temperature.py" :mkdirp yes
+
+* Tasks
+
+** TODO Tie data to table
+** TODO Add past 12 months table
+** TODO Make functions to read data and create tables
+** TODO Make functions to identify country/city data
+** TODO Plot results
+
+* Introduction
+
+Now that we have a grid set up for the globe with cities and countries tied to the grid, let's also tie some meteorological data to that grid. This data will also be on a grid, allowing us to later do queries to answer questions like "what are the annual temperatures in Berlin, Germany?".
+
+The [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysis]] dataset has globally modelled meteorological quantities such as temperature, wind speeds, and pressure. For now, we'll look at the monthly means of surface temperatures. The link to the this data can be found [[https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface/air.mon.mean.nc][here]]. We'll tie this data to our grid and have a look at some things using Python.
+
+* Importing Modules
+
+We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR.
+
+#+begin_src python :results silent
+
+  import xarray
+  import pandas as pd
+
+#+end_src
+
+* Read the Data
+
+Now we'll use =xarray= to read the data that I've downloaded.
+
+#+begin_src python :results silent
+
+  # Set the file path of the downloaded dataset
+  filePath = "./data/meteorological/air.mon.mean.nc"
+  
+  # Open the dataset with xarray
+  ds = xarray.open_dataset(filePath,decode_times=False)
+
+#+end_src
+
+Let's first have a look at the dataset.
+
+#+begin_src python :tangle no :results value
+
+  ds
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, time: 899)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 0.0 2.5 5.0 7.5 10.0 ... 350.0 352.5 355.0 357.5
+  ,* time     (time) float64 1.297e+06 1.298e+06 ... 1.953e+06 1.953e+06
+Data variables:
+    air      (time, lat, lon) float32 ...
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:16 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean air.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+#+end_example
+
+The data is stored in a variable =air= with dimensions =lat=, =lon=, and =time=. The spatial grid has a grid spacing of 2.5 degrees latitude and longitude. The time dimension is given in units of "hours since 1800-01-01 00:00:0.0" and goes back to 1948. Let's convert the time to a more manageable format, flip the longitude coordinates from 0:360 to -180:180, and limit the time dimension to just the last ten years. Finally, we'll group the data by month and average over the 10 years to get a 10 year average January, Februrary, etc. temperature for each grid. 
+
+#+begin_src python :results silent
+
+  # Convert the time dimension to datetime64 dates 
+  ds['time'] = pd.to_datetime(ds['time']*60*60,unit='s',origin="1800-01-01 00:00:0.0")
+
+  # Convert the longitude from 0 to 360 degrees to -180 to 180
+  ds.coords['lon'] = (ds.coords['lon'] + 180) % 360 - 180
+
+  # Sort by longitudes to rearrage
+  ds = ds.sortby(ds.lon)
+
+  # Subset the time dimension to the last 10 years, or 120 months
+  ds = ds.sel(time=ds['time'][-120:])
+  
+  # Now groupby and aggregate the months by averaging
+  dsMonthlyAgg = ds.groupby('time.month').mean('time')
+
+#+end_src
+
+Let's have a look at the resulting dataset.
+
+#+begin_src python :tangle no :results value
+
+  dsMonthlyAgg
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, month: 12)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
+  ,* month    (month) int64 1 2 3 4 5 6 7 8 9 10 11 12
+Data variables:
+    air      (month, lat, lon) float32 -25.62 -25.62 -25.62 ... -22.44 -22.44
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:16 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean air.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+#+end_example
+
+As expected, we've got our monthly averages on our flipped grid.
+
+* Join Temperature Data to the Grid Table 
+
+Now all that's left is to tie this dataset to our grid. Once we join these tables, we can then start to explore the data we've created.
