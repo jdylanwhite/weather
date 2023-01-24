@@ -4,8 +4,8 @@
 
 * Tasks
 
-** TODO Shift grid by half a grid cell so weather data is centered
-** TODO Add a center lat/lon column to the grid data
+** TODO Fix prime meridian problem
+There are currently two rectangles, split on either side of the meridian. This is fine, but we want to make sure that points that fall in either side get treated the same way. I think giving them the same index value would work.
 
 * Introduction
 
@@ -31,6 +31,7 @@ We will need =geopandas= for reading the shapefiles that we have downloaded, =pa
 
 #+begin_src python :tangle "./grid.py" :results silent
 
+  # Import modules
   import geopandas as gpd
   import pandas as pd
   import numpy as np
@@ -130,16 +131,17 @@ Now we need to create arrays for our grid, spanning from -90 to 90 degrees latit
 
 #+begin_src python :tangle "./grid.py" :results silent 
 
-  def construct_grid_arrays(gridspacing=2.5):
+  def construct_grid_arrays(gridspacing=2.5,addOffset=True):
 
       """
-      Using a given gridspacing, build an evenly spaced
-      latitude and longitude array.
+      Build an evenly spaced latitude and longitude array.
+
+      gridspacing is a float indicating the spacing in degrees
       """
 
-      # Build the latitude and longitude array
-      latitude = np.arange(-90,90,gridspacing)
-      longitude = np.arange(-180,180,gridspacing)
+      # Build the latitude and longitude array, but avoid the poles
+      latitude = np.arange(-90+gridspacing,90,gridspacing)
+      longitude = np.arange(-180,180+gridspacing,gridspacing)
 
       return longitude, latitude
 
@@ -149,6 +151,7 @@ Now with the arrays, we can create a grid of polygon tiles, and send them to a s
 
 #+begin_src python :tangle "./grid.py" :results silent
 
+
   def construct_grid(shpdir="./data/shapefiles/",gridspacing=2.5):
 
       """
@@ -156,20 +159,43 @@ Now with the arrays, we can create a grid of polygon tiles, and send them to a s
       results to a shapefile
       """
 
+      # Calculate half grid spacing
+      halfGrid = gridspacing*0.5
+
       # Construct the lat/lon arrays
       longitude, latitude = construct_grid_arrays(gridspacing)
 
+      # Initialize empty list to store row values
+      rowList = []
+
       # Create each grid cell as a polygon
-      polygonList = []
       for lat in latitude:
           for lon in longitude:
-              polygonList.append(Polygon([(lon, lat),
-                                          (lon+gridspacing, lat),
-                                          (lon+gridspacing, lat+gridspacing),
-                                          (lon, lat+gridspacing)]))
 
-      # Create the grid geodataframe and send to shapefile
-      gdfGrid = gpd.GeoDataFrame({'geometry':polygonList})
+              # Calculate the corner coordinates
+              latS = lat-halfGrid
+              latN = lat+halfGrid
+              lonW = lon-halfGrid
+              lonE = lon+halfGrid
+
+              # Check periodic east/west conditions
+              if lonW < -180:
+                  lonW = -180
+              if lonE > 180:
+                  lonE = 180
+
+              # Build the polygon
+              polygon = Polygon([(lonW, latS), (lonW, latN),
+                                 (lonE, latN), (lonE, latS)])
+              rowList.append([polygon,lon,lat])
+
+      # Create the grid geodataframe
+      gdfGrid = gpd.GeoDataFrame(rowList,
+                                 columns=['geometry','centerLon','centerLat'],
+                                 geometry='geometry',
+                                 crs='EPSG:4326')
+
+      # Send the grid to shapefile
       gdfGrid.to_file(shpdir+"grid_"+str(gridspacing)+".shp")
 
       return gdfGrid
@@ -186,12 +212,12 @@ Let's see how our grid dataframe looks.
 #+end_src
 
 #+RESULTS:
-:                                             geometry
-: 0  POLYGON ((-180.00000 -90.00000, -177.50000 -90...
-: 1  POLYGON ((-177.50000 -90.00000, -175.00000 -90...
-: 2  POLYGON ((-175.00000 -90.00000, -172.50000 -90...
-: 3  POLYGON ((-172.50000 -90.00000, -170.00000 -90...
-: 4  POLYGON ((-170.00000 -90.00000, -167.50000 -90...
+:                                             geometry  centerLon  centerLat
+: 0  POLYGON ((-180.00000 -88.75000, -180.00000 -86...     -180.0      -87.5
+: 1  POLYGON ((-178.75000 -88.75000, -178.75000 -86...     -177.5      -87.5
+: 2  POLYGON ((-176.25000 -88.75000, -176.25000 -86...     -175.0      -87.5
+: 3  POLYGON ((-173.75000 -88.75000, -173.75000 -86...     -172.5      -87.5
+: 4  POLYGON ((-171.25000 -88.75000, -171.25000 -86...     -170.0      -87.5
 
 * Find Intersecting Countries and Cities in the Grid
 
@@ -269,11 +295,11 @@ And also for our cities.
 
 #+RESULTS:
 :       city_id
-: 2059     27.0
-: 2060     28.0
-: 2204     25.0
-: 2208     26.0
-: 2490     23.0
+: 1930     28.0
+: 2074     27.0
+: 2074     25.0
+: 2079     26.0
+: 2459   2538.0
 
 * Map IDs to Grid
 
@@ -332,21 +358,19 @@ Now let's test out our functions for Ireland and Dublin, as an example. Ireland 
 #+RESULTS:
 #+begin_example
 Ireland is contained in the following grids:
-[8131, 8132, 8133, 8275, 8276, 8277, 8420, 8421]
+[8188, 8189, 8190, 8333, 8334, 8335]
 The coordinates of those grids are:
-	POLYGON ((-12.5 50, -10 50, -10 52.5, -12.5 52.5, -12.5 50))
-	POLYGON ((-10 50, -7.5 50, -7.5 52.5, -10 52.5, -10 50))
-	POLYGON ((-7.5 50, -5 50, -5 52.5, -7.5 52.5, -7.5 50))
-	POLYGON ((-12.5 52.5, -10 52.5, -10 55, -12.5 55, -12.5 52.5))
-	POLYGON ((-10 52.5, -7.5 52.5, -7.5 55, -10 55, -10 52.5))
-	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
-	POLYGON ((-10 55, -7.5 55, -7.5 57.5, -10 57.5, -10 55))
-	POLYGON ((-7.5 55, -5 55, -5 57.5, -7.5 57.5, -7.5 55))
+	POLYGON ((-11.25 51.25, -11.25 53.75, -8.75 53.75, -8.75 51.25, -11.25 51.25))
+	POLYGON ((-8.75 51.25, -8.75 53.75, -6.25 53.75, -6.25 51.25, -8.75 51.25))
+	POLYGON ((-6.25 51.25, -6.25 53.75, -3.75 53.75, -3.75 51.25, -6.25 51.25))
+	POLYGON ((-11.25 53.75, -11.25 56.25, -8.75 56.25, -8.75 53.75, -11.25 53.75))
+	POLYGON ((-8.75 53.75, -8.75 56.25, -6.25 56.25, -6.25 53.75, -8.75 53.75))
+	POLYGON ((-6.25 53.75, -6.25 56.25, -3.75 56.25, -3.75 53.75, -6.25 53.75))
 
 Dublin is contained in the following grids:
-[8277]
+[8189]
 The coordinates of those grids are:
-	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
+	POLYGON ((-8.75 51.25, -8.75 53.75, -6.25 53.75, -6.25 51.25, -8.75 51.25))
 #+end_example
 
 * Map Country and City Names to Grid
@@ -355,7 +379,9 @@ That's great, but it would be better if we didn't have to look up the index of t
 
 #+begin_src python :tangle "./grid.py" :results silent
 
-  def find_country_name_grids(country,shpDir="./data/shapefiles/",idPath="./data/ids/grid_country_sjoin.csv"):
+  def find_country_name_grids(country,
+                              shpDir="./data/shapefiles/",
+                              idPath="./data/ids/grid_country_sjoin.csv"):
 
       """
       Look up which grids contain a specified country and return them as a list.
@@ -372,8 +398,10 @@ That's great, but it would be better if we didn't have to look up the index of t
 
       return countryGridList
 
-  def find_city_name_grids(city,country,shpDir="./data/shapefiles/",idPath="./data/ids/grid_city_sjoin.csv"):
-
+  def find_city_name_grids(city,country,
+                           shpDir="./data/shapefiles/",
+                           idPath="./data/ids/grid_city_sjoin.csv"):
+      
       """
       Look up which grids contain a specified city and country and return them as a list.
       """
@@ -414,21 +442,19 @@ Now let's test it out on the same country and city, Ireland and Dublin, as befor
 #+RESULTS:
 #+begin_example
 Ireland is contained in the following grids:
-[8131, 8132, 8133, 8275, 8276, 8277, 8420, 8421]
+[8188, 8189, 8190, 8333, 8334, 8335]
 The coordinates of those grids are:
-	POLYGON ((-12.5 50, -10 50, -10 52.5, -12.5 52.5, -12.5 50))
-	POLYGON ((-10 50, -7.5 50, -7.5 52.5, -10 52.5, -10 50))
-	POLYGON ((-7.5 50, -5 50, -5 52.5, -7.5 52.5, -7.5 50))
-	POLYGON ((-12.5 52.5, -10 52.5, -10 55, -12.5 55, -12.5 52.5))
-	POLYGON ((-10 52.5, -7.5 52.5, -7.5 55, -10 55, -10 52.5))
-	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
-	POLYGON ((-10 55, -7.5 55, -7.5 57.5, -10 57.5, -10 55))
-	POLYGON ((-7.5 55, -5 55, -5 57.5, -7.5 57.5, -7.5 55))
+	POLYGON ((-11.25 51.25, -11.25 53.75, -8.75 53.75, -8.75 51.25, -11.25 51.25))
+	POLYGON ((-8.75 51.25, -8.75 53.75, -6.25 53.75, -6.25 51.25, -8.75 51.25))
+	POLYGON ((-6.25 51.25, -6.25 53.75, -3.75 53.75, -3.75 51.25, -6.25 51.25))
+	POLYGON ((-11.25 53.75, -11.25 56.25, -8.75 56.25, -8.75 53.75, -11.25 53.75))
+	POLYGON ((-8.75 53.75, -8.75 56.25, -6.25 56.25, -6.25 53.75, -8.75 53.75))
+	POLYGON ((-6.25 53.75, -6.25 56.25, -3.75 56.25, -3.75 53.75, -6.25 53.75))
 
 Dublin is contained in the following grids:
-[8277]
+[8189]
 The coordinates of those grids are:
-	POLYGON ((-7.5 52.5, -5 52.5, -5 55, -7.5 55, -7.5 52.5))
+	POLYGON ((-8.75 51.25, -8.75 53.75, -6.25 53.75, -6.25 51.25, -8.75 51.25))
 #+end_example
 
 * Find any Coordinate's Grid ID

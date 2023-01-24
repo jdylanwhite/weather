@@ -4,10 +4,26 @@
 
 * Tasks
 
-** TODO Tie data to table
-** TODO Add past 12 months table
-** TODO Make functions to read data and create tables
-** TODO Make functions to identify country/city data
+** DONE Tie data to table
+CLOSED: [2023-01-05 Thu 20:08]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2023-01-05 Thu 20:08]
+:END:
+** DONE Add past 12 months table
+CLOSED: [2023-01-05 Thu 20:09]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2023-01-05 Thu 20:09]
+:END:
+** DONE Make functions to read data and create tables
+CLOSED: [2023-01-05 Thu 21:15]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2023-01-05 Thu 21:15]
+:END:
+** DONE Make functions to identify country/city data
+CLOSED: [2023-01-05 Thu 21:15]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2023-01-05 Thu 21:15]
+:END:
 ** TODO Plot results
 
 * Introduction
@@ -20,10 +36,14 @@ The [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysi
 
 We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR.
 
-#+begin_src python :results silent
+#+begin_src python
 
+  # Import modules
   import xarray
   import pandas as pd
+  import geopandas as gpd
+  import grid
+  import matplotlib.pyplot as plt
 
 #+end_src
 
@@ -31,15 +51,20 @@ We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR.
 
 Now we'll use =xarray= to read the data that I've downloaded. We can return the =xarray= Dataset object to see a nice summary of the data.
 
+#+begin_src python
+
+  def read_dataset(filePath="./data/meteorological/air.mon.mean.nc"):
+
+      # Open the dataset with xarray
+      ds = xarray.open_dataset(filePath)
+
+      return ds
+  
+#+end_src
+
 #+begin_src python :tangle no :results value
 
-  # Set the file path of the downloaded dataset
-  filePath = "./data/meteorological/air.mon.mean.nc"
-
-  # Open the dataset with xarray
-  ds = xarray.open_dataset(filePath)
-
-  # Return summary of the data
+  ds = read_dataset()
   ds
 
 #+end_src
@@ -67,21 +92,59 @@ Attributes:
 
 The data is stored in a variable =air= with dimensions =lat=, =lon=, and =time=. The spatial grid has a grid spacing of 2.5 degrees latitude and longitude. The time dimension is monthly and goes back to 1948.
 
+* Convert to Fahrenheit
+
+#+begin_src python
+  
+  def convert_celcius_to_fahrenheit(ds,var='air'):
+
+      # Convert temperatures from degrees C to F
+      ds[var] = 1.8*ds[var]+32
+
+      return ds
+
+#+end_src
+
+#+begin_src python
+
+  ds = convert_celcius_to_fahrenheit(ds)
+  ds
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, time: 899)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 0.0 2.5 5.0 7.5 10.0 ... 350.0 352.5 355.0 357.5
+  ,* time     (time) datetime64[ns] 1948-01-01 1948-02-01 ... 2022-11-01
+Data variables:
+    air      (time, lat, lon) float32 -30.87 -30.87 -30.87 ... -26.05 -26.05
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:16 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean air.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+#+end_example
+
 * Read the Last Year's Data
 
 Let's flip the longitude coordinates from 0:360 to -180:180, and limit the time dimension to just the last year. We'll give the option =nYears= in our function to return a specified number of years, rather than the default one year. 
 
-#+begin_src python :results silent
+#+begin_src python
 
 
-  def last_year_data(filePath,nYear=1):
+  def last_year_data(ds,nYear=1):
       """Read dataset, adjust coordinates, and select last 12 months of data.
 
       filePath is the location fo the netCDF file.
       This assumes dimensions are lon, lat, and time."""
-
-      # Open the dataset with xarray
-      ds = xarray.open_dataset(filePath)
 
       # Convert the longitude from 0 to 360 degrees to -180 to 180
       ds.coords['lon'] = (ds.coords['lon'] + 180) % 360 - 180
@@ -94,14 +157,15 @@ Let's flip the longitude coordinates from 0:360 to -180:180, and limit the time 
 
       return ds
 
-  
+
 #+end_src
 
 Let's have a look at the results of running this function on our netCDF file.
 
 #+begin_src python :tangle no :results value
 
-  last_year_data(filePath)
+  dsLastYear = last_year_data(ds)
+  dsLastYear
 
 #+end_src
 
@@ -114,7 +178,7 @@ Coordinates:
   ,* lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
   ,* time     (time) datetime64[ns] 2021-12-01 2022-01-01 ... 2022-11-01
 Data variables:
-    air      (time, lat, lon) float32 ...
+    air      (time, lat, lon) float32 -3.866 -3.866 -3.866 ... -26.05 -26.05
 Attributes:
     description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
     platform:       Model
@@ -132,19 +196,15 @@ As expected, our longitudes are flipped and the time dimension is sliced to just
 
 Now let's say we want to know what the average temperatures are in a grid in January for the last 10 years, February for the last 10 years, and so on. We can use =Dataset.groupby= and then aggregate those groups using =.mean()= and =.std()= to get the mean and standard deviation. Specifically, we'll group by =time.month= and make sure our mean and standard deviations are being calculated along the time dimension for each group.
 
-#+begin_src python :results silent
+#+begin_src python
 
 
-  def monthly_means(filePath,varName,nYears=10):
-
+  def monthly_means(ds,varName,nYears=10):
       """Read dataset, adjust coordinates, and return monthly means/stddevs
 
       filePath is the path to the netCDF file.
       nYears is the number of years used to aggregate each monthly average.
       Assumes dimensions are lon, lat, time."""
-
-      # Open the dataset with xarray
-      ds = xarray.open_dataset(filePath)
 
       # Convert the longitude from 0 to 360 degrees to -180 to 180
       ds.coords['lon'] = (ds.coords['lon'] + 180) % 360 - 180
@@ -163,12 +223,15 @@ Now let's say we want to know what the average temperatures are in a grid in Jan
 
       return dsMonthlyAgg
 
-  
+
 #+end_src
+
+#+RESULTS:
 
 #+begin_src python :tangle no :results value
 
-  monthly_means(filePath,'air',10)
+  dsMonthlyAgg = monthly_means(ds,'air',10)
+  dsMonthlyAgg
   
 #+end_src
 
@@ -181,8 +244,8 @@ Coordinates:
   ,* lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
   ,* month    (month) int64 1 2 3 4 5 6 7 8 9 10 11 12
 Data variables:
-    air_avg  (month, lat, lon) float32 -25.62 -25.62 -25.62 ... -22.44 -22.44
-    air_std  (month, lat, lon) float32 3.277 3.277 3.277 ... 1.008 1.008 1.008
+    air_avg  (month, lat, lon) float32 -14.12 -14.12 -14.12 ... -8.389 -8.389
+    air_std  (month, lat, lon) float32 5.899 5.899 5.899 ... 1.815 1.815 1.815
 Attributes:
     description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
     platform:       Model
@@ -197,3 +260,173 @@ Attributes:
 * Join Temperature Data to the Grid Table 
 
 Now all that's left is to tie this dataset to our grid. Once we join these tables, we can then start to explore the data we've created.
+
+#+begin_src python
+
+  def merge_data_to_grid(ds,gridPath="./data/shapefiles/grid_2.5.shp"):
+
+      # Convert the dataset to a dataframe
+      df = ds.to_dataframe().reset_index()
+
+      # Read in the grid index from shapefile
+      gdfGrid = gpd.read_file("./data/shapefiles/grid_2.5.shp")
+
+      # Specific the grid index 
+      gdfGrid['grid_id'] = gdfGrid.index
+
+      # Merge the grid with the dataframe
+      dfGrid = pd.merge(df,gdfGrid,
+                        left_on=['lat','lon'],
+                        right_on=['centerLat','centerLon'],
+                        how='inner')
+
+      return dfGrid
+
+#+end_src
+
+Now let's test out our function and view a small subset of the data.
+
+#+begin_src python :tangle no :results value
+
+  dfMonthlyAggGrid = merge_data_to_grid(dsMonthlyAgg)
+  dfMonthlyAggGrid[['grid_id','month','air_avg','air_std']]
+  
+#+end_src
+
+#+RESULTS:
+#+begin_example
+        grid_id  month    air_avg   air_std
+0         10150      1 -15.711714  5.847236
+1         10150      2 -14.685346  7.536669
+2         10150      3 -14.569380  5.954011
+3         10150      4   2.259167  2.016848
+4         10150      5  21.617508  4.064685
+...         ...    ...        ...       ...
+122683      143      8 -54.493408  5.105365
+122684      143      9 -53.484535  5.446112
+122685      143     10 -40.406319  2.660493
+122686      143     11 -22.880550  2.560153
+122687      143     12  -8.812808  2.056013
+
+[122688 rows x 4 columns]
+#+end_example
+
+We can see now that there is data for each grid! Now we can connect our functions in =grid.py= to get data from the grid. Specifically, we want to be able to handle a list of grid IDs and then average them up by month across all of the grids. This will allow us to get all of the grids for a country and average each of the month's data.
+
+#+begin_src python
+
+  def get_data_from_grid(dfGrid,columns,gridList):
+
+      # Get only the columns with those grids
+      dfGridData = dfGrid.loc[dfGrid['grid_id'].isin(gridList)] 
+
+      # Fetch the information for just that city
+      aggDict = {column:"mean" for column in columns}
+      dfGridData = dfGridData.groupby('month').agg(aggDict).reset_index()
+
+      return dfGridData
+
+#+end_src
+
+#+RESULTS:
+
+Let's test the function for Berlin, Germany.
+
+#+begin_src python :tangle no :results value
+
+  gridIdList = grid.find_city_name_grids("Berlin","Germany")
+  get_data_from_grid(dfMonthlyAggGrid,['air_avg','air_std'],gridIdList)
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+    month    air_avg   air_std
+0       1  33.084602  3.522718
+1       2  35.789486  4.556553
+2       3  40.045265  5.062397
+3       4  48.399464  3.344721
+4       5  56.527294  2.782575
+5       6  64.719009  2.664564
+6       7  66.813309  1.586340
+7       8  66.918251  2.666062
+8       9  59.309601  2.650403
+9      10  51.923206  2.541912
+10     11  41.981644  1.822655
+11     12  37.094654  3.152889
+#+end_example
+
+Now let's test the function for *all* of Germany.
+
+#+begin_src python :tangle no :results value
+
+  gridIdList = grid.find_country_name_grids("Germany")
+  get_data_from_grid(dfMonthlyAggGrid,['air_avg','air_std'],gridIdList)
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+    month    air_avg   air_std
+0       1  33.334927  3.286724
+1       2  35.123055  4.184440
+2       3  39.029522  3.883180
+3       4  46.198711  3.127296
+4       5  53.551033  2.923461
+5       6  61.623299  2.384813
+6       7  64.437088  1.730142
+7       8  64.340332  2.442013
+8       9  57.726616  2.341588
+9      10  50.847298  2.524836
+10     11  41.842102  2.175579
+11     12  36.800751  2.638184
+#+end_example
+
+* Plot the Data
+
+Now we have the data we want, so we just need to plot it!
+
+#+begin_src python :tangle no :results file
+
+  # Get the data
+  gridIdList = grid.find_city_name_grids("Berlin","Germany")
+  dfBerlin = get_data_from_grid(dfMonthlyAggGrid,['air_avg','air_std'],gridIdList)
+
+  # Create month labels
+  xLabels = {
+      1:"Jan",
+      2: "Feb",
+      3: "Mar",
+      4: "Apr",
+      5: "May",
+      6: "Jun",
+      7: "Jul",
+      8: "Aug",
+      9: "Sep",
+      10: "Oct",
+      11: "Nov",
+      12: "Dec"
+  }
+
+  # Get the x and y values
+  x = dfBerlin['month'].to_list()
+  x = [xLabels[i] for i in x]
+  y = dfBerlin['air_avg'].to_list()
+  yStd = dfBerlin['air_std'].to_list()
+  yMinus = [y[i]-yStd[i] for i in range(len(y))]
+  yPlus = [y[i]+yStd[i] for i in range(len(y))]
+
+  # Create plot
+  fig, ax = plt.subplots(figsize=(5,5))
+  ax.fill_between(x,yMinus,yPlus,color="blue")
+  ax.plot(x,y,color="black")
+
+  # Save plot
+  figFile = "./images/Berlin_mean_temperatures.png"
+  fig.savefig(figFile)
+  figFile
+
+#+end_src
+
+#+RESULTS:
+[[file:./images/Berlin_mean_temperatures.png]]
