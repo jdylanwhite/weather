@@ -1,0 +1,319 @@
+#+title: Surface Winds
+#+author: J. Dylan White
+#+PROPERTY: header-args:python :session *py* :tangle "./variable.py" :mkdirp yes
+
+* Tasks
+
+** TODO Combine u and v into one wind speed value
+** 
+
+* Introduction
+
+We now have several basic functions to read, average, and plot [[file:surface-temperature.org][surface temperature]] and to map the reanalysis data to an existing [[file:globe-to-grid.org][grid]]. Now let's use the [[https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface/uwnd.mon.mean.nc][zonal]] (longitudinal) and [[https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface/vwnd.mon.mean.nc][meridional]] (latitudinal) winds from the [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysis]].
+
+* Importing Modules
+
+We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR, =numpy= for a bit of math, =pandas= and =geopandas= to manage to grid dataframe, and =matplotlib= for plotting. =grid.py= and =variables.py= store the functions created so far.
+
+#+begin_src python :results silent
+
+  # Import modules
+  import xarray
+  import numpy as np
+  import pandas as pd
+  import geopandas as gpd
+  import grid
+  import variables
+  import matplotlib.pyplot as plt
+
+#+end_src
+
+* Read the Data
+
+Now we'll use =xarray= to read the data that I've downloaded. We can return the =xarray= Dataset object to see a nice summary of the data. Note: in atmospheric science, the zonal wind is often referred to with the variable $u$, and the meridional wind is often referred to as $v$.
+
+#+begin_src python :results output
+
+  # Set the file path for u and v winds
+  filePathU = "./data/meteorological/uwnd.mon.mean.nc"
+  filePathV = "./data/meteorological/vwnd.mon.mean.nc"
+
+  # Read the data from the file
+  dsU = variables.read_dataset(filePathU)
+  dsV = variables.read_dataset(filePathV)
+
+  # Flip the longitudes
+  dsU = variables.flip_longitudes(dsU)
+  dsV = variables.flip_longitudes(dsV)
+
+  # Print a summary
+  print("Zonal winds monthly means file:")
+  print(dsU)
+  print("\nMeridional winds monthly means file:")
+  print(dsV)
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Zonal winds monthly means file:
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, time: 900)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
+  ,* time     (time) datetime64[ns] 1948-01-01 1948-02-01 ... 2022-12-01
+Data variables:
+    uwnd     (time, lat, lon) float32 ...
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:28 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean uwnd.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+
+Meridional winds monthly means file:
+<xarray.Dataset>
+Dimensions:  (lat: 73, lon: 144, time: 900)
+Coordinates:
+  ,* lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+  ,* lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
+  ,* time     (time) datetime64[ns] 1948-01-01 1948-02-01 ... 2022-12-01
+Data variables:
+    vwnd     (time, lat, lon) float32 ...
+Attributes:
+    description:    Data from NCEP initialized reanalysis (4x/day).  These ar...
+    platform:       Model
+    Conventions:    COARDS
+    NCO:            20121012
+    history:        Thu May  4 20:11:41 2000: ncrcat -d time,0,623 /Datasets/...
+    title:          monthly mean vwnd.sig995 from the NCEP Reanalysis
+    dataset_title:  NCEP-NCAR Reanalysis 1
+    References:     http://www.psl.noaa.gov/data/gridded/data.ncep.reanalysis...
+#+end_example
+
+The data is stored in variables =uwnd= and =vwnd= with dimensions =lat=, =lon=, and =time=. The spatial grid has a grid spacing of 2.5 degrees latitude and longitude. The time dimension is monthly and goes back to 1948.
+
+* Plot Past Data
+
+Similar to how we looked at past temperatures in Berlin, let's also look at the wind data in the past.
+
+** Last Year
+
+First, let's look at the from last year.
+
+#+begin_src python :results file
+
+  # Limit data to just the last year
+  dsLastYearU = variables.last_year_data(dsU)
+  dsLastYearV = variables.last_year_data(dsV)
+
+  # Merge the data to the grid
+  dfLastYearGridU = variables.merge_data_to_grid(dsLastYearU)
+  dfLastYearGridV = variables.merge_data_to_grid(dsLastYearV)
+
+  # Get data from the grid
+  gridIdList = grid.find_city_name_grids("Berlin","Germany")
+  dfLastYearBerlinU = variables.get_data_from_grid(dfLastYearGridU,['uwnd'],gridIdList,"time")
+  dfLastYearBerlinV = variables.get_data_from_grid(dfLastYearGridV,['vwnd'],gridIdList,"time")
+
+  # Get the data to plot
+  x = dfLastYearBerlinU['time'].to_list()
+  y1 = dfLastYearBerlinU['uwnd'].to_list()
+  y2 = dfLastYearBerlinV['vwnd'].to_list()
+
+  # Create plot
+  fig, ax = plt.subplots(figsize=(5,5))
+  ax.plot(x,y1,color="blue",label="$u$")
+  ax.plot(x,y2,color="red",label="$v$")
+  ax.legend()
+
+  # Save plot
+  figFile = "./images/Berlin_mean_winds_last_year.png"
+  fig.savefig(figFile)
+  figFile
+
+#+end_src
+
+#+RESULTS:
+[[file:./images/Berlin_mean_winds.png]]
+
+** Average Over the Last Ten Years
+
+Now let's look at the same, for a 10 year average over each month.
+
+#+begin_src python :results file
+
+  # Limit data to just the last year
+  dsLast10YearsU = variables.last_year_data(dsU,10)
+  dsLast10YearsV = variables.last_year_data(dsV,10)
+
+  # Average over the last 10 years
+  dsLast10YearsAvgU = variables.monthly_means(dsLast10YearsU,'uwnd')
+  dsLast10YearsAvgV = variables.monthly_means(dsLast10YearsV,'vwnd')
+
+  # Merge the data to the grid
+  dfLast10YearsAvgGridU = variables.merge_data_to_grid(dsLast10YearsAvgU)
+  dfLast10YearsAvgGridV = variables.merge_data_to_grid(dsLast10YearsAvgV)
+
+  # Get data from the grid
+  gridIdList = grid.find_city_name_grids("Berlin","Germany")
+  dfLast10YearsAvgBerlinU = variables.get_data_from_grid(dfLast10YearsAvgGridU,['uwnd_avg'],gridIdList,"month")
+  dfLast10YearsAvgBerlinV = variables.get_data_from_grid(dfLast10YearsAvgGridV,['vwnd_avg'],gridIdList,"month")
+
+  # Create month labels
+  xLabels = {
+      1:"Jan",
+      2: "Feb",
+      3: "Mar",
+      4: "Apr",
+      5: "May",
+      6: "Jun",
+      7: "Jul",
+      8: "Aug",
+      9: "Sep",
+      10: "Oct",
+      11: "Nov",
+      12: "Dec"
+  }
+  
+  # Get the data to plot
+  x = dfLast10YearsAvgBerlinU['month'].to_list()
+  x = [xLabels[i] for i in x]
+  y1 = dfLast10YearsAvgBerlinU['uwnd_avg'].to_list()
+  y2 = dfLast10YearsAvgBerlinV['vwnd_avg'].to_list()
+
+  # Create plot
+  fig, ax = plt.subplots(figsize=(5,5))
+  ax.plot(x,y1,color="blue",label="$u$")
+  ax.plot(x,y2,color="red",label="$v$")
+  ax.legend()
+
+  # Save plot
+  figFile = "./images/Berlin_mean_winds_last_10_years.png"
+  fig.savefig(figFile)
+  figFile
+
+#+end_src
+
+#+RESULTS:
+[[file:./images/Berlin_mean_winds_last_10_years.png]]
+
+* Combine Horizontal Wind Speed
+
+Rather than bothering with the two wind directions, it makes sense to combine the two into a horizontal windspeed. This is simply the square root of the sum of squares of the zonal and meridional winds.
+
+#+begin_src python :results value
+
+  def calculate_windspeed(dsU,dsV,uVar="uwnd",vVar="vwnd",speedVar="wind"):
+
+      # Calculate the square root of the sum of squares
+      arrWind = np.sqrt(dsU[uVar]**2+dsV[vVar]**2)
+
+      # Construct dataset from resulting array
+      dsWind = xarray.Dataset({speedVar:arrWind})
+
+      return dsWind
+
+  dsWind = calculate_windspeed(dsU,dsV)
+  dsWind
+
+#+end_src
+
+#+RESULTS:
+: <xarray.Dataset>
+: Dimensions:  (lat: 73, lon: 144, time: 900)
+: Coordinates:
+:   * lat      (lat) float32 90.0 87.5 85.0 82.5 80.0 ... -82.5 -85.0 -87.5 -90.0
+:   * lon      (lon) float32 -180.0 -177.5 -175.0 -172.5 ... 172.5 175.0 177.5
+:   * time     (time) datetime64[ns] 1948-01-01 1948-02-01 ... 2022-12-01
+: Data variables:
+:     wind     (time, lat, lon) float32 1.32 1.314 1.323 ... 1.969 1.968 1.967
+
+#+begin_src python :results file
+
+  # Limit data to just the last year
+  dsLastYearWind = variables.last_year_data(dsWind)
+
+  # Merge the data to the grid
+  dfLastYearGridWind = variables.merge_data_to_grid(dsLastYearWind)
+
+  # Get data from the grid
+  gridIdList = grid.find_city_name_grids("Berlin","Germany")
+  dfLastYearBerlinWind = variables.get_data_from_grid(dfLastYearGridWind,['wind'],gridIdList,"time")
+
+  # Get the data to plot
+  x = dfLastYearBerlinWind['time'].to_list()
+  y = dfLastYearBerlinWind['wind'].to_list()
+
+  # Create plot
+  fig, ax = plt.subplots(figsize=(5,5))
+  ax.plot(x,y,color="black")
+
+  # Save plot
+  figFile = "./images/Berlin_mean_windspeed_last_year.png"
+  fig.savefig(figFile)
+  figFile
+
+#+end_src
+
+#+RESULTS:
+[[file:./images/Berlin_mean_windspeed_last_year.png]]
+
+#+begin_src python :results file
+
+  # Limit data to just the last year
+  dsLast10YearsWind = variables.last_year_data(dsWind,10)
+
+  # Average over the last 10 years
+  dsLast10YearsAvgWind = variables.monthly_means(dsLast10YearsWind,'wind')
+
+  # Merge the data to the grid
+  dfLast10YearsAvgGridWind = variables.merge_data_to_grid(dsLast10YearsAvgWind)
+
+  # Get data from the grid
+  gridIdList = grid.find_city_name_grids("Berlin","Germany")
+  dfLast10YearsAvgBerlinWind = variables.get_data_from_grid(dfLast10YearsAvgGridWind,['wind_avg','wind_std'],gridIdList,"month")
+
+  # Create month labels
+  xLabels = {
+      1:"Jan",
+      2: "Feb",
+      3: "Mar",
+      4: "Apr",
+      5: "May",
+      6: "Jun",
+      7: "Jul",
+      8: "Aug",
+      9: "Sep",
+      10: "Oct",
+      11: "Nov",
+      12: "Dec"
+  }
+
+  # Get the data to plot
+  x = dfLast10YearsAvgBerlinU['month'].to_list()
+  x = [xLabels[i] for i in x]
+  y = dfLast10YearsAvgBerlinWind['wind_avg'].to_list()
+  yStd = dfLast10YearsAvgBerlinWind['wind_std'].to_list()
+  yMinus = [y[i]-yStd[i] for i in range(len(y))]
+  yPlus = [y[i]+yStd[i] for i in range(len(y))]
+
+  # Create plot
+  fig, ax = plt.subplots(figsize=(5,5))
+  ax.fill_between(x,yMinus,yPlus,color="blue")
+  ax.plot(x,y,color="black")
+
+  # Save plot
+  figFile = "./images/Berlin_mean_windspeed_last_10_years.png"
+  fig.savefig(figFile)
+  figFile
+
+#+end_src
+
+#+RESULTS:
+[[file:./images/Berlin_mean_windspeed_last_10_years.png]]
+
