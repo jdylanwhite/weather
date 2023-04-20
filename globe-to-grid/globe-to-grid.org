@@ -2,11 +2,6 @@
 #+author: J. Dylan White
 #+PROPERTY: header-args:python :session *py* :mkdirp yes
 
-* Tasks
-
-** TODO Fix prime meridian problem
-There are currently two rectangles, split on either side of the meridian. This is fine, but we want to make sure that points that fall in either side get treated the same way. I think giving them the same index value would work.
-
 * Introduction
 
 The overall goal of this project, at least initially, is to provide climatological weather data across the globe in one coherent, consistent manner. Services like this already exist to some extent, but my goal here is to create something that is

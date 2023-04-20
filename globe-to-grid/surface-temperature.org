@@ -2,30 +2,6 @@
 #+author: J. Dylan White
 #+PROPERTY: header-args:python :session *py* :tangle "./sfc_temperature.py" :mkdirp yes
 
-* Tasks
-
-** DONE Tie data to table
-CLOSED: [2023-01-05 Thu 20:08]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2023-01-05 Thu 20:08]
-:END:
-** DONE Add past 12 months table
-CLOSED: [2023-01-05 Thu 20:09]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2023-01-05 Thu 20:09]
-:END:
-** DONE Make functions to read data and create tables
-CLOSED: [2023-01-05 Thu 21:15]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2023-01-05 Thu 21:15]
-:END:
-** DONE Make functions to identify country/city data
-CLOSED: [2023-01-05 Thu 21:15]
-:LOGBOOK:
-- State "DONE"       from "TODO"       [2023-01-05 Thu 21:15]
-:END:
-** TODO Plot results
-
 * Introduction
 
 Now that we have a grid set up for the globe with cities and countries tied to the grid, let's also tie some meteorological data to that grid. This data will also be on a grid, allowing us to later do queries to answer questions like "what are the annual temperatures in Berlin, Germany?".
@@ -34,9 +10,10 @@ The [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysi
 
 * Importing Modules
 
-We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR.
+We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR, =pandas= and =geopandas= to manage to grid dataframe, and =matplotlib= for plotting. =grid.py= stores the functions created so far for the globe-to-grid conversions.
 
-#+begin_src python
+
+#+begin_src python :results silent
 
   # Import modules
   import xarray

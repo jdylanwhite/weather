@@ -1,10 +1,10 @@
 #+title: Surface Winds
 #+author: J. Dylan White
-#+PROPERTY: header-args:python :session *py* :tangle "./variable.py" :mkdirp yes
+#+PROPERTY: header-args:python :session *py*
 
 * Introduction
 
-We now have several basic functions to read, average, and plot [[file:surface-temperature.org][surface temperature]] and to map the reanalysis data to an existing [[file:globe-to-grid.org][grid]]. Now let's use the [[https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface/uwnd.mon.mean.nc][zonal]] (longitudinal) and [[https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface/vwnd.mon.mean.nc][meridional]] (latitudinal) winds from the [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysis]].
+We now have several basic functions to read, average, and plot [[file:surface-temperature.org][surface temperature]] and to map the reanalysis data to an existing [[file:globe-to-grid.org][grid]]. Now let's use the  from the [[https://psl.noaa.gov/data/reanalysis/reanalysis.shtml][NCEP/NCAR Reanalysis]].
 
 * Importing Modules
 
@@ -20,6 +20,32 @@ We'll need to use =xarray= in order to read in the netCDF files from NCEP/NCAR, 
   import grid
   import variables
   import matplotlib.pyplot as plt
+  import urllib.request
+ 
+#+end_src
+
+* Download the Data
+
+#+begin_src python :results silent
+
+  def download_surface_variable(var,dataDir):
+
+      # Build the file path
+      filePath = f"{dataDir}/{var}.mon.mean.nc"
+
+      # Build the file URL
+      baseUrl = "https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/surface"
+      fileUrl = f"{baseUrl}/{var}.mon.mean.nc"
+
+      # Download the file
+      urllib.request.urlretrieve(fileUrl, filePath)
+
+      return filePath
+
+  # Download the relative humidity file
+  var = "rhum"
+  dataDir = "./data/meteorological"
+  filePath = download_surface_variable(var,dataDir)
 
 #+end_src
 
@@ -228,8 +254,6 @@ Rather than bothering with the two wind directions, it makes sense to combine th
 : Data variables:
 :     wind     (time, lat, lon) float32 1.32 1.314 1.323 ... 1.969 1.968 1.967
 
-Now let's plot the wind speed data from last year.
-
 #+begin_src python :results file
 
   # Limit data to just the last year
@@ -259,8 +283,6 @@ Now let's plot the wind speed data from last year.
 
 #+RESULTS:
 [[file:./images/Berlin_mean_windspeed_last_year.png]]
-
-And finally, we plot the average of the last 10 years wind speed data.
 
 #+begin_src python :results file
 
