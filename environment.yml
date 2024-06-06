@@ -1,0 +1,18 @@
+name: weather
+channels:
+  - conda-forge
+dependencies:
+  - python >=3.12
+  - ipykernel
+  - requests
+  - bs4
+  - xarray
+  - matplotlib
+  - numpy
+  - cartopy
+  - metpy
+  - h5py
+  - pandas
+  - seaborn
+  - h5netcdf
+  - scikit-learn

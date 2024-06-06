@@ -4,10 +4,6 @@ import urllib.request
 from bs4 import BeautifulSoup
 import requests
 
-#===============================================================================
-# Data download functions
-#===============================================================================
-
 def get_monthly_file_path():
 
     """Since the monthly averages file is overwritten with a new name

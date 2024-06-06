@@ -16,7 +16,7 @@ Before we get started, we need to download the data.
 
 ** Monthly Data
 
-Let's start by dowloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Since the data is fairly coarse and only stored in monthly averages (for our purposes), it isn't a cumbersome dataset (21 MB), but there are still over 40 years of data, spanning from 1979 to the present, 2021.
+Let's start by downloading the monthly OLR data using Python. We'll use the =os= and =urllib.request= modules to do this. Since the data is fairly coarse and only stored in monthly averages (for our purposes), it isn't a cumbersome dataset (21 MB), but there are still over 40 years of data, spanning from 1979 to the present, 2021.
 
 #+begin_src python :session one :exports both :results none
   
@@ -27,7 +27,7 @@ Let's start by dowloading the monthly OLR data using Python. We'll use the =os= 
   # Set the URL of the data to download
   dataUrl = "https://www.ncei.noaa.gov/data/"+\
             "outgoing-longwave-radiation-monthly/"+\
-            "access/olr-monthly_v02r07_197901_202107.nc"
+            "access/olr-monthly_v02r07_197901_202404.nc"
            
   # Grab the file name
   dataDir = "./data/"
@@ -88,7 +88,7 @@ Similarly, we can download the daily data. These data files are stored yearly, w
 
   # Define the range of years
   beginYear = 2018
-  endYear = 2020
+  endYear = 2023
 
   # Set the base URL for the directory to parse files
   baseUrl = "https://www.ncei.noaa.gov/data/"+\
@@ -135,15 +135,15 @@ Now we have some data to explore, so let's now figure out some nice ways to read
 Now that we've downloaded it, let's have a look at the data. We'll use =xarray= to open the downloaded OLR file in its netCDF4 file format. Since the data that comes down covers over 30 years of data, let's just have a look at one year for now. We'll use the =datetime= module to specify bounds in the time dimension of the file, and then take the time mean of that data. Finally, we use =matplotlib= to plot the data. To perform the average, we need to take the slice of time that we want via the =.sel()= method, and then run the =.mean()= method on the time dimension of that slice. 
  
 #+begin_src python :session one :results output file :exports both
-  
+
   # Import modules
   import xarray
   import datetime
   import matplotlib.pyplot as plt
 
   # Set date bounds to slice the data
-  beginDate = datetime.datetime(2020,1,1)
-  endDate = datetime.datetime(2021,1,1)
+  beginDate = datetime.datetime(2023,1,1)
+  endDate = datetime.datetime(2024,1,1)
 
   # Open the dataset with xarray
   ds = xarray.open_dataset(filePath)
@@ -175,7 +175,7 @@ The output image doesn't look wonderful or anything, but we see what we might ex
 Let's make the plot a little more clean. We can do some things, like change the color map, add coastlines, etc. [[https://scitools.org.uk/cartopy/docs/latest/index.html][Cartopy]] will allow us to a lot of these tasks.
 
 #+begin_src python :session one :results output file :exports both
-  
+
   # Import modules
   import numpy as np
   import cartopy.crs as ccrs
@@ -258,7 +258,6 @@ What if we don't want to plot a map, but instead, a global average. To do so, we
   ax.tick_params(labelsize=14)
   ax.set_xlabel("Date, years",fontsize=16)
   ax.set_ylabel("OLR, W m$^{-2}$",fontsize=16)
-  ax.set_xlim(["1979-07-16","2021-02-15"])
 
   # Save the figure
   fileName = 'images/global_average.png'
@@ -286,7 +285,7 @@ Viewing meteorological fields with time and longitude axes is a good way to visu
 
   # Set time bounds
   beginTime = '2019-01-01'
-  endTime = '2020-12-31'
+  endTime = '2023-12-31'
   timeSlice = slice(beginTime,endTime)
 
   # Set latitude bounds
@@ -376,6 +375,7 @@ Viewing meteorological fields with time and longitude axes is a good way to visu
 
 #+RESULTS:
 [[file:images/hovmoller.png]]
+
  
 In this dataset, we can't really see any propagating waves. If we could, we'd see diagonal streaks of positive and negative altering perturbations. We're looking at monthly averages, so any propagating waves that would show up here would need to have a period of more than two months to show up, and that's too large for most atmospheric oscillations that we'd expect to show up in OLR. The only streaks here are horizontal, with more OLR in the May - October months, and less OLR in the Novermber - April months. We're in the northern hemisphere for this diagram, so we're simply seeing the seasonal variation in the Earth's reflection/emmission. Note that the effect of land mass also shows up niceley here, as seen by the consistent vertical patterns.
 
