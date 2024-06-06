@@ -146,6 +146,8 @@ Attributes:
 
 Since our index was a standardized index, a value of 1 in the index represents a month when the sea level pressure different between Darwin and Tahiti was one standard deviation greater than the mean. In other words, an index of 1 represents a pretty typical La Nina phase month, while an index of -1 represents a pretty typical El Nino phase month.
 
+* Plot Regression Coefficients
+
 We can multiply our regression coefficient array by some index value in order to get the anomalous OLR that we should expect as a result of a month of that index. So if we multiply the coefficients by 1, the resulting array would be the anomalous OLR as a result of a typical La Nina month. Let's plot that result.
 
 #+begin_src python :session *py* :results output file
