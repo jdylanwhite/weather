@@ -1,4 +1,4 @@
-a#+Title: Regression of SOI Data onto OLR Data
+#+Title: Regression of SOI Data onto OLR Data
 #+Date: <2024-06-05 Wed>
 
 * Introduction
