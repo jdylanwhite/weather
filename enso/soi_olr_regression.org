@@ -5,7 +5,7 @@
 
 Using the [[file:soi.org][monthly averaged time series of SOI data]], we can now use a linear regression to identify components of other meteorological variables associated with the SOI. We can do this with any matching timeseries where we regress some variable onto an index to get the correlation coefficients of the variable associated with that index.
 
-* Import modules
+* Import Modules
 
 Start by importing everything we'll need to run the code.
 
@@ -25,7 +25,7 @@ Start by importing everything we'll need to run the code.
 
 #+end_src
 
-* Read the OLR data
+* Read the OLR Data
 
 Here we open the [[file:~/Documents/Projects/weather/olr/olr.org][OLR data we've previously downloaded]] and explored.
 
